@@ -90,14 +90,14 @@ return testbed.module(function(params)
 				rhs_lo  = rhs_lo,
 				rhs_hi  = rhs_hi,
 			})
-			local res_sl_lo  , res_sl_hi   = shifter_outputs.sl_lo       , shifter_outputs.sl_hi
-			local res_add_lo , res_add_hi  = adder_outputs.sum_lo        , adder_outputs.sum_hi
-			local res_sltu_lo, res_sltu_hi = adder_outputs.unsigned_carry, 0x10000000
-			local res_slt_lo , res_slt_hi  = adder_outputs.signed_carry  , 0x10000000
-			local res_sr_lo  , res_sr_hi   = shifter_outputs.sr_lo       , shifter_outputs.sr_hi
-			local res_xor_lo , res_xor_hi  = bitwise_outputs.xor_lo      , bitwise_outputs.xor_hi
-			local res_and_lo , res_and_hi  = bitwise_outputs.and_lo      , bitwise_outputs.and_hi
-			local res_or_lo  , res_or_hi   = bitwise_outputs.or_lo       , bitwise_outputs.or_hi
+			local res_sl_lo  , res_sl_hi   = shifter_outputs.sl_lo , shifter_outputs.sl_hi
+			local res_add_lo , res_add_hi  = adder_outputs.sum_lo  , adder_outputs.sum_hi
+			local res_sltu_lo, res_sltu_hi = adder_outputs.ltu     , 0x10000000
+			local res_slt_lo , res_slt_hi  = adder_outputs.lt      , 0x10000000
+			local res_sr_lo  , res_sr_hi   = shifter_outputs.sr_lo , shifter_outputs.sr_hi
+			local res_xor_lo , res_xor_hi  = bitwise_outputs.xor_lo, bitwise_outputs.xor_hi
+			local res_and_lo , res_and_hi  = bitwise_outputs.and_lo, bitwise_outputs.and_hi
+			local res_or_lo  , res_or_hi   = bitwise_outputs.or_lo , bitwise_outputs.or_hi
 			local res_01_lo, res_01_hi, res_23_lo, res_23_hi, res_45_lo, res_45_hi, res_67_lo, res_67_hi = spaghetti.select(
 				index:band(1):zeroable(),
 				res_sl_lo  , res_add_lo,
@@ -124,8 +124,8 @@ return testbed.module(function(params)
 			return {
 				res_lo = res_07_lo,
 				res_hi = res_07_hi,
-				lt     = adder_outputs.signed_carry,
-				ltu    = adder_outputs.unsigned_carry,
+				lt     = adder_outputs.lt,
+				ltu    = adder_outputs.ltu,
 				eq     = bitwise_outputs.eq,
 			}
 		end,
@@ -201,20 +201,20 @@ return testbed.module(function(params)
 				return nil, "shifter: " .. err
 			end
 			local branches = {
-				[ 0 ] = { lo = adder_outputs.sum_lo        , hi = adder_outputs.sum_hi   },
-				[ 1 ] = { lo = shifter_outputs.sl_lo       , hi = shifter_outputs.sl_hi  },
-				[ 2 ] = { lo = adder_outputs.signed_carry  , hi = 0x10000000             },
-				[ 3 ] = { lo = adder_outputs.unsigned_carry, hi = 0x10000000             },
-				[ 4 ] = { lo = bitwise_outputs.xor_lo      , hi = bitwise_outputs.xor_hi },
-				[ 5 ] = { lo = shifter_outputs.sr_lo       , hi = shifter_outputs.sr_hi  },
-				[ 6 ] = { lo = bitwise_outputs.or_lo       , hi = bitwise_outputs.or_hi  },
-				[ 7 ] = { lo = bitwise_outputs.and_lo      , hi = bitwise_outputs.and_hi },
+				[ 0 ] = { lo = adder_outputs.sum_lo  , hi = adder_outputs.sum_hi   },
+				[ 1 ] = { lo = shifter_outputs.sl_lo , hi = shifter_outputs.sl_hi  },
+				[ 2 ] = { lo = adder_outputs.lt      , hi = 0x10000000             },
+				[ 3 ] = { lo = adder_outputs.ltu     , hi = 0x10000000             },
+				[ 4 ] = { lo = bitwise_outputs.xor_lo, hi = bitwise_outputs.xor_hi },
+				[ 5 ] = { lo = shifter_outputs.sr_lo , hi = shifter_outputs.sr_hi  },
+				[ 6 ] = { lo = bitwise_outputs.or_lo , hi = bitwise_outputs.or_hi  },
+				[ 7 ] = { lo = bitwise_outputs.and_lo, hi = bitwise_outputs.and_hi },
 			}
 			return {
 				res_lo = branches[index].lo,
 				res_hi = branches[index].hi,
-				lt     = adder_outputs.signed_carry,
-				ltu    = adder_outputs.unsigned_carry,
+				lt     = adder_outputs.lt,
+				ltu    = adder_outputs.ltu,
 				eq     = bitwise_outputs.eq,
 			}
 		end,
