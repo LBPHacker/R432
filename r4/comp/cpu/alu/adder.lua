@@ -1,6 +1,7 @@
 local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
+local common    = require("r4.comp.cpu.common")
 
 return testbed.module(function(params)
 	return {
@@ -30,31 +31,8 @@ return testbed.module(function(params)
 		},
 		func = function(inputs)
 			local sub_mask = spaghetti.lshift(0x3FFFFFFF, inputs.control:bor(0x10000))
-			local function four_stages(lhs, rhs)
-				local lhs_ka     = lhs:bor(0x20000000)
-				local lhs_ka_sub = lhs_ka:bxor(0x3FFFFFFF):bxor(sub_mask)
-				local generate  = lhs_ka_sub:band(rhs):assert(0x10000000, 0x0000FFFF)
-				local propagate = lhs_ka_sub:bxor(rhs):assert(0x20000000, 0x0000FFFF)
-				local onesums   = lhs_ka    :bxor(rhs):assert(0x20000000, 0x0000FFFF)
-				for i = 0, 3 do
-					local bit_i_m1          = bitx.lshift(1, i)
-					local propagate_fill    = bitx.lshift(1, bit_i_m1) - 1
-					local keepalive         = bitx.rshift(0x20000000, bit_i_m1)
-					local generate_shifted  = spaghetti.lshiftk(generate :bor(keepalive), bit_i_m1)
-					local propagate_shifted = spaghetti.lshiftk(propagate:bor(keepalive), bit_i_m1)
-					if i == 2 then
-						generate_shifted  = spaghetti.lshiftk(generate :bor(0x01000000), bit_i_m1):bor(0x20000000)
-						propagate_shifted = spaghetti.lshiftk(propagate:bor(0x01000000), bit_i_m1):bor(0x20000000)
-	 				end
-					generate  = propagate:band(generate_shifted ):bor(generate)
-					propagate = propagate:band(propagate_shifted :bor(propagate_fill))
-				end
-				generate:assert(0x30000000, 0x0000FFFF)
-				propagate:assert(0x20000000, 0x0000FFFF)
-				return generate, propagate, onesums
-			end
-			local generate_lo, propagate_lo, onesums_lo = four_stages(inputs.lhs_lo, inputs.rhs_lo)
-			local generate_hi, propagate_hi, onesums_hi = four_stages(inputs.lhs_hi, inputs.rhs_hi)
+			local generate_lo, propagate_lo, onesums_lo = common.ks16(inputs.lhs_lo, inputs.rhs_lo, sub_mask)
+			local generate_hi, propagate_hi, onesums_hi = common.ks16(inputs.lhs_hi, inputs.rhs_hi, sub_mask)
 			local generate_lo_8 = spaghetti.rshiftk(generate_lo, 8):bor(0x20000000):band(0x20000080)
 			local half_carry = spaghetti.rshiftk(generate_lo_8, 7)
 			local propagate_hi_cond = propagate_hi:band(spaghetti.lshift(0x3FFFFFFF, half_carry))

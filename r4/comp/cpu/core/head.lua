@@ -3,6 +3,7 @@ local bitx            = require("spaghetti.bitx")
 local testbed         = require("spaghetti.testbed")
 local unit            = require("r4.comp.cpu.core.unit")
 local internal_writer = require("r4.comp.cpu.core.internal_writer").instantiate()
+local instr_split     = require("r4.comp.cpu.core.instr_split")    .instantiate()
 local regs            = require("r4.comp.cpu.decoder.regs")        .instantiate()
 
 return testbed.module(function(params)
@@ -63,6 +64,10 @@ return testbed.module(function(params)
 			local pc_lo = inputs.pc_lo
 			local pc_hi = inputs.pc_hi
 			for ix_unit = 0, units - 1 do
+				local instr = inputs["instr_"  .. ix_unit]
+				local instr_split_outputs = instr_split.component({
+					instr = instr,
+				})
 				local unit_outputs = (ix_unit == 0 and unit_first or unit_middle).component({
 					lhs_lo      = inputs["lhs_lo_" .. ix_unit],
 					lhs_hi      = inputs["lhs_hi_" .. ix_unit],
@@ -71,7 +76,9 @@ return testbed.module(function(params)
 					pc_lo       = pc_lo,
 					pc_hi       = pc_hi,
 					defer       = defer,
-					instr       = inputs["instr_"  .. ix_unit],
+					instr       = instr,
+					instr_lo    = instr_split_outputs.instr_lo,
+					instr_hi    = instr_split_outputs.instr_hi,
 					next_lhs_lo = inputs["lhs_lo_" .. (ix_unit + 1)],
 					next_lhs_hi = inputs["lhs_hi_" .. (ix_unit + 1)],
 					next_rhs_lo = inputs["rhs_lo_" .. (ix_unit + 1)],
@@ -157,6 +164,13 @@ return testbed.module(function(params)
 			local pc_lo = inputs.pc_lo
 			local pc_hi = inputs.pc_hi
 			for ix_unit = 0, units - 1 do
+				local instr = inputs["instr_"  .. ix_unit]
+				local instr_split_outputs, err = instr_split.fuzz_outputs({
+					instr = instr,
+				})
+				if not instr_split_outputs then
+					return nil, "instr_split/" .. ix_unit .. ": " .. err
+				end
 				local unit_outputs, err = (ix_unit == 0 and unit_first or unit_middle).fuzz_outputs({
 					lhs_lo      = inputs["lhs_lo_" .. ix_unit],
 					lhs_hi      = inputs["lhs_hi_" .. ix_unit],
@@ -165,7 +179,9 @@ return testbed.module(function(params)
 					pc_lo       = pc_lo,
 					pc_hi       = pc_hi,
 					defer       = defer,
-					instr       = inputs["instr_"  .. ix_unit],
+					instr       = instr,
+					instr_lo    = instr_split_outputs.instr_lo,
+					instr_hi    = instr_split_outputs.instr_hi,
 					next_lhs_lo = inputs["lhs_lo_" .. (ix_unit + 1)],
 					next_lhs_hi = inputs["lhs_hi_" .. (ix_unit + 1)],
 					next_rhs_lo = inputs["rhs_lo_" .. (ix_unit + 1)],

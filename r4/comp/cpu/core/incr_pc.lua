@@ -1,6 +1,7 @@
 local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
+local common    = require("r4.comp.cpu.common")
 
 return testbed.module(function(params)
 	return {
@@ -24,19 +25,8 @@ return testbed.module(function(params)
 			{ name = "hi", index = 3, keepalive = 0x10000000, payload = 0x0000FFFF },
 		},
 		func = function(inputs)
-			local function incr16(expr, ignore2lsb)
-				local inv = expr:bxor(0x1FFFF)
-				if ignore2lsb then
-					inv = inv:bxor(3)
-				end
-				local flip = spaghetti.constant(0x3FFFFFFE):lshift(inv):never_zero():bxor(0x1FFFF)
-				if ignore2lsb then
-					flip = flip:bxor(3)
-				end
-				return expr:bxor(flip:never_zero():bsub(0x10000000):never_zero())
-			end
-			local lo_incr = incr16(inputs.lo,  true)
-			local hi_incr = incr16(inputs.hi, false)
+			local lo_incr = common.incr16(inputs.lo,  true, false)
+			local hi_incr = common.incr16(inputs.hi, false, false)
 			return {
 				lo = lo_incr:band(0x1000FFFF):bsub(3),
 				hi = spaghetti.select(lo_incr:band(0x10000):zeroable(), hi_incr:band(0x1000FFFF), inputs.hi),

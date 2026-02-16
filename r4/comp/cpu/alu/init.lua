@@ -1,12 +1,16 @@
 local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
+local check     = require("spaghetti.check")
 local adder     = require("r4.comp.cpu.alu.adder")  .instantiate()
 local bitwise   = require("r4.comp.cpu.alu.bitwise").instantiate()
 local shifter   = require("r4.comp.cpu.alu.shifter").instantiate()
 local imm12s    = require("r4.comp.cpu.alu.imm12s") .instantiate()
 
-return testbed.module(function(params)
+return testbed.module(function(params, params_name)
+	check.one_of(params_name .. ".unit_type", params.unit_type, { "f", "m", "l" })
+	local has_jal = params.unit_type == "l"
+
 	return {
 		tag = "core.alu",
 		opt_params = {
@@ -16,8 +20,8 @@ return testbed.module(function(params)
 			temp_loss     = 1e-6,
 			round_length  = 10000,
 		},
-		stacks        = 1,
-		storage_slots = 60,
+		stacks        = 2,
+		storage_slots = 70,
 		work_slots    = 20,
 		inputs = {
 			{ name = "lhs_lo"  , index =  1, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
@@ -28,13 +32,17 @@ return testbed.module(function(params)
 			{ name = "pc_hi"   , index = 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "instr_lo", index = 13, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "instr_hi", index = 15, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			has_jal and { name = "jaloff_lo", index = 17, keepalive = 0x10000000, payload = 0x0000FFFE, initial = 0x10000000 } or nil,
+			has_jal and { name = "jaloff_hi", index = 19, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 } or nil,
 		},
 		outputs = {
-			{ name = "res_lo", index = 1, keepalive = 0x10000000, payload = 0x0000FFFF },
-			{ name = "res_hi", index = 3, keepalive = 0x10000000, payload = 0x0000FFFF },
-			{ name = "lt"    , index = 5, keepalive = 0x10000000, payload = 0x00000001 },
-			{ name = "ltu"   , index = 7, keepalive = 0x10000000, payload = 0x00000001 },
-			{ name = "eq"    , index = 9, keepalive = 0x10000000, payload = 0x00000001 },
+			{ name = "res_lo", index =  1, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "res_hi", index =  3, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "lt"    , index =  5, keepalive = 0x10000000, payload = 0x00000001 },
+			{ name = "ltu"   , index =  7, keepalive = 0x10000000, payload = 0x00000001 },
+			{ name = "eq"    , index =  9, keepalive = 0x10000000, payload = 0x00000001 },
+			has_jal and { name = "jal_lo", index = 11, keepalive = 0x10000000, payload = 0x0000FFFF } or nil,
+			has_jal and { name = "jal_hi", index = 13, keepalive = 0x10000000, payload = 0x0000FFFF } or nil,
 		},
 		func = function(inputs)
 			local instr_2     = spaghetti.rshiftk(inputs.instr_lo, 2)
@@ -70,6 +78,21 @@ return testbed.module(function(params)
 				inputs.instr_lo:bsub(0x0FFF), rhs_lo,
 				inputs.instr_hi             , rhs_hi
 			)
+			if has_jal then
+				local instr_3   = spaghetti.rshiftk(inputs.instr_lo, 3)
+				local instr_3i  = instr_3:bxor(1)
+				local instr_6   = spaghetti.rshiftk(inputs.instr_lo, 6)
+				local instr_6i  = instr_6:bxor(1)
+				local instr_jal = instr_3i:bor(instr_6i)
+				adder_lhs_lo, adder_lhs_hi, adder_rhs_lo, adder_rhs_hi = spaghetti.select(
+					instr_jal:band(1):zeroable(),
+					adder_lhs_lo, inputs.pc_lo,
+					adder_lhs_hi, inputs.pc_hi,
+					adder_rhs_lo, inputs.jaloff_lo,
+					adder_rhs_hi, inputs.jaloff_hi
+				)
+				instr_addx = instr_addx:bor(instr_jal:bxor(1))
+			end
 			local adder_outputs = adder.component({
 				control = instr_addx:band(0x10000001),
 				lhs_lo  = adder_lhs_lo,
@@ -127,18 +150,22 @@ return testbed.module(function(params)
 				lt     = adder_outputs.lt,
 				ltu    = adder_outputs.ltu,
 				eq     = bitwise_outputs.eq,
+				jal_lo = has_jal and adder_outputs.sum_lo or nil,
+				jal_hi = has_jal and adder_outputs.sum_hi or nil,
 			}
 		end,
 		fuzz_inputs = function()
 			return {
-				lhs_lo   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				lhs_hi   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				rhs_lo   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				rhs_hi   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				pc_lo    = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
-				pc_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				instr_lo = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				instr_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				lhs_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				lhs_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				rhs_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				rhs_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				pc_lo     = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
+				pc_hi     = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				instr_lo  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				instr_hi  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				jaloff_lo = has_jal and bitx.bor(bitx.lshift(math.random(0x0000, 0x7FFF), 1), 0x10000000) or nil,
+				jaloff_hi = has_jal and bitx.bor(            math.random(0x0000, 0xFFFF)    , 0x10000000) or nil,
 			}
 		end,
 		fuzz_outputs = function(inputs)
@@ -171,8 +198,13 @@ return testbed.module(function(params)
 				adder_lhs_lo, adder_lhs_hi = 0x10000000, 0x10000000
 				adder_rhs_lo, adder_rhs_hi = bitx.band(inputs.instr_lo, 0x1000F000), inputs.instr_hi
 			end
+			local instr_jal = has_jal and bitx.band(inputs.instr_lo, 0x0048) == 0x0048
+			if instr_jal then
+				adder_lhs_lo, adder_lhs_hi = inputs.pc_lo, inputs.pc_hi
+				adder_rhs_lo, adder_rhs_hi = inputs.jaloff_lo, inputs.jaloff_hi
+			end
 			local adder_outputs, err = adder.fuzz_outputs({
-				control = (instr_add or instr_addi or instr_auipc or instr_lui) and 0x10000001 or 0x10000000,
+				control = (instr_add or instr_addi or instr_auipc or instr_lui or instr_jal) and 0x10000001 or 0x10000000,
 				lhs_lo  = adder_lhs_lo,
 				lhs_hi  = adder_lhs_hi,
 				rhs_lo  = adder_rhs_lo,
@@ -216,6 +248,8 @@ return testbed.module(function(params)
 				lt     = adder_outputs.lt,
 				ltu    = adder_outputs.ltu,
 				eq     = bitwise_outputs.eq,
+				jal_lo = has_jal and adder_outputs.sum_lo or nil,
+				jal_hi = has_jal and adder_outputs.sum_hi or nil,
 			}
 		end,
 	}
