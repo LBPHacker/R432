@@ -4,7 +4,7 @@ local testbed   = require("spaghetti.testbed")
 
 return testbed.module(function(params)
 	return {
-		tag = "alu.imm12s",
+		tag = "core.alu.imm12s",
 		opt_params = {
 			thread_count  = 1,
 			temp_initial  = 1,

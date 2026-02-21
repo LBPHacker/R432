@@ -5,7 +5,7 @@ local common    = require("r4.comp.cpu.common")
 
 return testbed.module(function(params)
 	return {
-		tag = "alu.adder",
+		tag = "core.alu.adder",
 		opt_params = {
 			thread_count  = 1,
 			temp_initial  = 1,

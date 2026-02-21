@@ -2,17 +2,17 @@ local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
 local check     = require("spaghetti.check")
-local adder     = require("r4.comp.cpu.alu.adder")  .instantiate()
-local bitwise   = require("r4.comp.cpu.alu.bitwise").instantiate()
-local shifter   = require("r4.comp.cpu.alu.shifter").instantiate()
-local imm12s    = require("r4.comp.cpu.alu.imm12s") .instantiate()
+local adder     = require("r4.comp.cpu.core.alu.adder")  .instantiate()
+local bitwise   = require("r4.comp.cpu.core.alu.bitwise").instantiate()
+local shifter   = require("r4.comp.cpu.core.alu.shifter").instantiate()
+local imm12s    = require("r4.comp.cpu.core.alu.imm12s") .instantiate()
 
 return testbed.module(function(params, params_name)
 	check.one_of(params_name .. ".unit_type", params.unit_type, { "f", "m", "l" })
 	local has_jal = params.unit_type == "l"
 
 	return {
-		tag = "core.alu",
+		tag = "core.core.alu",
 		opt_params = {
 			thread_count  = 1,
 			temp_initial  = 1,

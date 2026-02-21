@@ -4,7 +4,7 @@ local testbed   = require("spaghetti.testbed")
 
 return testbed.module(function(params)
 	return {
-		tag = "alu.shifter",
+		tag = "core.alu.shifter",
 		opt_params = {
 			thread_count  = 1,
 			temp_initial  = 1,

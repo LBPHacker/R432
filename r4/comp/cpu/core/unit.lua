@@ -2,7 +2,7 @@ local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
 local check     = require("spaghetti.check")
-local alu       = require("r4.comp.cpu.alu")
+local alu       = require("r4.comp.cpu.core.alu")
 local cbranch   = require("r4.comp.cpu.core.cbranch").instantiate()
 local incr_pc   = require("r4.comp.cpu.core.incr_pc").instantiate()
 
