@@ -4,7 +4,7 @@ local testbed     = require("spaghetti.testbed")
 local unit        = require("r4.comp.cpu.core.unit")
 local instr_split = require("r4.comp.cpu.core.instr_split").instantiate()
 local address     = require("r4.comp.cpu.core.address")    .instantiate()
-local regs        = require("r4.comp.cpu.decoder.regs")    .instantiate()
+local regs        = require("r4.comp.cpu.core.regs")       .instantiate()
 
 return testbed.module(function(params)
 	local unit_last = unit.instantiate({ unit_type = "l" }, "?")
@@ -29,7 +29,7 @@ return testbed.module(function(params)
 			{ name = "lhs_hi", index =  9, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "rhs_lo", index = 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "rhs_hi", index = 13, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-			{ name = "instr" , index = 15, keepalive = 0x00000003, payload = 0xFFFFFFFC, initial = 0x00000001 },
+			{ name = "instr" , index = 15, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 		},
 		outputs = {
 			{ name = "pc_lo"  , index =  1, keepalive = 0x10000000, payload = 0x0000FFFF },
@@ -100,7 +100,7 @@ return testbed.module(function(params)
 				lhs_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				rhs_lo = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				rhs_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				instr  = bitx.bor(bitx.lshift(math.random(0x00000000, 0x3FFFFFFF), 2), 3),
+				instr  = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 1),
 			}
 		end,
 		fuzz_outputs = function(inputs)

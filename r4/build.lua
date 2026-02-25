@@ -27,7 +27,7 @@ local function run(modname_with_params, output_type, output_view, verb, output_f
 		output_view   = output_view,
 		output_type   = output_type,
 		design_params = {
-			probes = verb == "fuzz",
+			probes = (verb == "fuzz") and "minimal" or false,
 		},
 	})
 end

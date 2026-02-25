@@ -35,17 +35,17 @@ return testbed.module(function(params, params_name)
 		table.insert(outputs, { name = "jal_lo", index = 25, keepalive = 0x10000000, payload = 0x0000FFFF })
 		table.insert(outputs, { name = "jal_hi", index = 27, keepalive = 0x10000000, payload = 0x0000FFFF })
 	else
-		table.insert(inputs, { name = "instr"      , index = 15, keepalive = 0x00000003, payload = 0xFFFFFFFC, initial = 0x00000001 })
+		table.insert(inputs, { name = "instr"      , index = 15, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 })
 		table.insert(inputs, { name = "next_lhs_lo", index = 17, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs, { name = "next_lhs_hi", index = 19, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs, { name = "next_rhs_lo", index = 21, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs, { name = "next_rhs_hi", index = 23, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
-		table.insert(inputs, { name = "next_instr" , index = 25, keepalive = 0x00000003, payload = 0xFFFFFFFC, initial = 0x00000001 })
+		table.insert(inputs, { name = "next_instr" , index = 25, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 })
 		table.insert(outputs, { name = "next_lhs_lo", index = 13, keepalive = 0x10000000, payload = 0x0000FFFF })
 		table.insert(outputs, { name = "next_lhs_hi", index = 15, keepalive = 0x10000000, payload = 0x0000FFFF })
 		table.insert(outputs, { name = "next_rhs_lo", index = 17, keepalive = 0x10000000, payload = 0x0000FFFF })
 		table.insert(outputs, { name = "next_rhs_hi", index = 19, keepalive = 0x10000000, payload = 0x0000FFFF })
-		table.insert(outputs, { name = "next_instr" , index = 21, keepalive = 0x00000003, payload = 0xFFFFFFFC })
+		table.insert(outputs, { name = "next_instr" , index = 21, keepalive = 0x00000001, payload = 0xFFFFFFFE })
 	end
 	return {
 		tag = "core.head",
@@ -153,7 +153,7 @@ return testbed.module(function(params, params_name)
 			}
 		end,
 		fuzz_inputs = function()
-			local instr = bitx.bor(bitx.lshift(math.random(0x00000000, 0x3FFFFFFF), 2), 3)
+			local instr = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 1)
 			local instr_lo = bitx.band(            instr     , 0xFFFF)
 			local instr_hi = bitx.band(bitx.rshift(instr, 16), 0xFFFF)
 			local inputs = {
@@ -173,7 +173,7 @@ return testbed.module(function(params, params_name)
 				inputs.next_lhs_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
 				inputs.next_rhs_lo = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
 				inputs.next_rhs_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
-				inputs.next_instr  = bitx.bor(bitx.lshift(math.random(0x00000000, 0x3FFFFFFF), 2), 3)
+				inputs.next_instr  = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 1)
 			end
 			return inputs
 		end,

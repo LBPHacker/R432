@@ -4,7 +4,7 @@ local testbed         = require("spaghetti.testbed")
 local unit            = require("r4.comp.cpu.core.unit")
 local internal_writer = require("r4.comp.cpu.core.internal_writer").instantiate()
 local instr_split     = require("r4.comp.cpu.core.instr_split")    .instantiate()
-local regs            = require("r4.comp.cpu.decoder.regs")        .instantiate()
+local regs            = require("r4.comp.cpu.core.regs")           .instantiate()
 
 return testbed.module(function(params)
 	local unit_first  = unit.instantiate({ unit_type = "f" }, "?")
@@ -19,7 +19,7 @@ return testbed.module(function(params)
 		{ name = "lhs_hi_" .. units, index = 10 + units * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "rhs_lo_" .. units, index = 12 + units * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "rhs_hi_" .. units, index = 14 + units * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-		{ name = "instr_"  .. units, index = 16 + units * 11, keepalive = 0x00000003, payload = 0xFFFFFFFC, initial = 0x00000001 },
+		{ name = "instr_"  .. units, index = 16 + units * 11, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 	}
 	local outputs = {
 		{ name = "pc_lo"           , index =  1             , keepalive = 0x10000000, payload = 0x0000FFFF },
@@ -28,14 +28,14 @@ return testbed.module(function(params)
 		{ name = "lhs_hi_" .. units, index = 10 + units * 11, keepalive = 0x10000000, payload = 0x0000FFFF },
 		{ name = "rhs_lo_" .. units, index = 12 + units * 11, keepalive = 0x10000000, payload = 0x0000FFFF },
 		{ name = "rhs_hi_" .. units, index = 14 + units * 11, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "instr_"  .. units, index = 16 + units * 11, keepalive = 0x00000003, payload = 0xFFFFFFFC },
+		{ name = "instr_"  .. units, index = 16 + units * 11, keepalive = 0x00000001, payload = 0xFFFFFFFE },
 	}
 	for ix_unit = 0, units - 1 do
 		table.insert(inputs , { name = "lhs_lo_" .. ix_unit, index =  8 + ix_unit * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs , { name = "lhs_hi_" .. ix_unit, index = 10 + ix_unit * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs , { name = "rhs_lo_" .. ix_unit, index = 12 + ix_unit * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs , { name = "rhs_hi_" .. ix_unit, index = 14 + ix_unit * 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
-		table.insert(inputs , { name = "instr_"  .. ix_unit, index = 16 + ix_unit * 11, keepalive = 0x00000003, payload = 0xFFFFFFFC, initial = 0x00000001 })
+		table.insert(inputs , { name = "instr_"  .. ix_unit, index = 16 + ix_unit * 11, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 })
 		table.insert(outputs, { name = "res_lo_" .. ix_unit, index =  8 + ix_unit * 11, keepalive = 0x10000000, payload = 0x0000FFFF })
 		table.insert(outputs, { name = "res_hi_" .. ix_unit, index = 10 + ix_unit * 11, keepalive = 0x10000000, payload = 0x0000FFFF })
 	end
@@ -137,14 +137,14 @@ return testbed.module(function(params)
 				[ "lhs_hi_" .. units ] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				[ "rhs_lo_" .. units ] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				[ "rhs_hi_" .. units ] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				[ "instr_"  .. units ] = bitx.bor(bitx.lshift(math.random(0x00000000, 0x3FFFFFFF), 2), 3),
+				[ "instr_"  .. units ] = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 1),
 			}
 			for ix_unit = 0, units - 1 do
 				inputs["lhs_lo_" .. ix_unit] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
 				inputs["lhs_hi_" .. ix_unit] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
 				inputs["rhs_lo_" .. ix_unit] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
 				inputs["rhs_hi_" .. ix_unit] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
-				inputs["instr_"  .. ix_unit] = bitx.bor(bitx.lshift(math.random(0x00000000, 0x3FFFFFFF), 2), 3)
+				inputs["instr_"  .. ix_unit] = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 1)
 			end
 			return inputs
 		end,

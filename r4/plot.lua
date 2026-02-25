@@ -9,6 +9,11 @@ local function run(params)
 	if rawget(_G, "r4plot") then
 		r4plot.unregister()
 	end
+	if params.debug_stacks ~= nil then
+		check.table("params.debug_stacks", params.debug_stacks)
+		check.integer("params.debug_stacks.x", params.debug_stacks.x)
+		check.integer("params.debug_stacks.y", params.debug_stacks.y)
+	end
 	local x, y = 0, 0
 	if params.x ~= nil then
 		check.integer("params.x", params.x)
@@ -20,6 +25,19 @@ local function run(params)
 	end
 
 	local parts = cpu.build_internal(params)
+
+	local aftersimdraw
+	if params.debug_stacks then
+		local aftersimdraw_user_stacks = plot.aftersimdraw_user_stacks(params.debug_stacks.x, params.debug_stacks.y, x, y, parts)
+		local prev_aftersimdraw = aftersimdraw
+		aftersimdraw = function()
+			aftersimdraw_user_stacks()
+			if not prev_aftersimdraw then
+				return
+			end
+			return prev_aftersimdraw()
+		end
+	end
 
 	if params.clear_sim then
 		sim.clearSim()
@@ -44,7 +62,13 @@ local function run(params)
 	end
 
 	local function unregister()
+		if aftersimdraw then
+			event.unregister(event.AFTERSIMDRAW, aftersimdraw)
+		end
 		rawset(_G, "r4plot", nil)
+	end
+	if aftersimdraw then
+		event.register(event.AFTERSIMDRAW, aftersimdraw)
 	end
 	local r4plot = {
 		unregister = unregister,

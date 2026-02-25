@@ -4,7 +4,7 @@ local testbed   = require("spaghetti.testbed")
 
 return testbed.module(function(params)
 	return {
-		tag = "decoder.regs",
+		tag = "core.regs",
 		opt_params = {
 			thread_count  = 1,
 			temp_initial  = 1,
@@ -16,7 +16,7 @@ return testbed.module(function(params)
 		storage_slots = 40,
 		work_slots    = 20,
 		inputs = {
-			{ name = "instr", index = 1, keepalive = 0x00000003, payload = 0xFFFFFFFC, initial = 0x00000001 },
+			{ name = "instr", index = 1, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 		},
 		outputs = {
 			{ name = "rs1", index = 1, keepalive = 0x10000000, payload = 0x0000001F },

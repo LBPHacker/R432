@@ -20,7 +20,7 @@ return testbed.module(function(params)
 			{ name = "control" , index =  1, keepalive = 0x10000000, payload = 0x0000000F, initial = 0x10000000 },
 			{ name = "core_lo" , index =  3, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "core_hi" , index =  5, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-			{ name = "addr_lo" , index = 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "addr_lo" , index = 11, keepalive = 0x10000000, payload = 0x01FFFFFF, initial = 0x10000000 },
 			{ name = "mem_rest", index = 36, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 			{ name = "mem_lsb" , index = 37, keepalive = 0x00000000, payload = 0xFFFFFFFF, initial = 0x20000000, never_zero = true },
 		},
@@ -93,7 +93,7 @@ return testbed.module(function(params)
 				core_hi  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				mem_rest = mem_rest,
 				mem_lsb  = mem_lsb,
-				addr_lo  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				addr_lo  = bitx.bor(math.random(0x0000, 0x1FFFFFF), 0x10000000),
 			}
 		end,
 		fuzz_outputs = function(inputs)
