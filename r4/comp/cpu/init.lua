@@ -23,14 +23,14 @@ local function build_internal(params)
 	local aray          = ucontext.aray
 
 	local eu_spacing = 20
+	local eus        = 2
 
-	if true then -- memory
+	if false then -- memory
 		local x_body           = 10
 		local y_body           = 10
 		local height           = 64
 		local width_order      = 7
 		local max_height_order = 6
-		local eus              = 2
 
 		local function memory32(p, value)
 			local bray = bitx.band(value, 1) ~= 0
@@ -731,219 +731,232 @@ local function build_internal(params)
 		end
 	end
 
-	if false then -- register access
-		local x_regs = 100
-		local y_regs = 100
-		local regs = 32
-		local writers = 4
-		local readers = 8
+	do -- register access
+		local regs        = 32
+		local writers     = 4
+		local readers     = 8
+		local x_regs      = 106
+		local y_regs_base = 110
 
-		local x_decode = x_regs + 17
-		local x_target = x_decode - 13
-		local y_decode = y_regs - 3
-
+		local prev_regs = {}
 		for ix_reg = 0, regs - 1 do
 			local x_reg = x_regs - ix_reg * 2
-
-			local source_lo = part({ type = pt.FILT, x = x_reg, y = y_regs - eu_spacing, ctype = ix_reg == 0 and 0x10000000 or (0x10AD0000 + ix_reg) })
-			part({ type = pt.FILT, x = x_reg, y = y_regs })
-			ldtc(x_reg, y_regs - 1, source_lo.x, source_lo.y)
-			if ix_reg ~= 0 then
-				part({ type = pt.LDTC, x = x_reg + 1, y = y_regs - 1, life = 1, tmp = 1 })
-			end
-
-			local source_hi = part({ type = pt.FILT, x = x_reg - 2, y = y_regs - eu_spacing + 3, ctype = ix_reg == 0 and 0x10000000 or (0x10DE0000 + ix_reg) })
-			part({ type = pt.FILT, x = x_reg - 2, y = y_regs + 3 })
-			ldtc(x_reg - 2, y_regs + 2, source_hi.x, source_hi.y)
-			if ix_reg ~= 0 then
-				part({ type = pt.LDTC, x = x_reg - 1, y = y_regs + 2, life = 4, tmp = 1 })
-			end
-		end
-
-		local function change_conductor(conductor, lsns_distance, invert_conv)
-			part({ type = pt.CONV, x = x_decode, y = y_decode, ctype = conductor, tmp = invert_conv or pt.SPRK, tmp2 = invert_conv and 1 or 0 })
-			part({ type = pt.CONV, x = x_decode, y = y_decode, ctype = pt.SPRK, tmp = conductor })
-			part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = lsns_distance or 1 })
-		end
-
-		local bit_filt = {}
-		for ix_bit = 0, 4 do
-			bit_filt[ix_bit] = part({ type = pt.FILT, x = x_decode + 3 + ix_bit, y = y_decode, ctype = bitx.lshift(1, ix_bit) })
-		end
-		local lsns_life = part({ type = pt.FILT, x = x_decode + 2, y = y_decode, ctype = 0x10000003 })
-
-		local writer_info = {}
-		for ix_writer = 0, writers - 1 do
-			writer_info[ix_writer] = {
-				addr    = part({ type = pt.FILT, x = x_decode +  9 + ix_writer * 3, y = y_decode, ctype = 0x10000005 + ix_writer }),
-				data_lo = part({ type = pt.FILT, x = x_decode + 10 + ix_writer * 3, y = y_decode, ctype = 0x1000FE00 + ix_writer }),
-				data_hi = part({ type = pt.FILT, x = x_decode + 11 + ix_writer * 3, y = y_decode, ctype = 0x1000CA00 + ix_writer }),
+			prev_regs[ix_reg] = {
+				lo = part({ type = pt.FILT, x = x_reg    , y = y_regs_base - eu_spacing    , ctype = ix_reg == 0 and 0x10000000 or (0x10AD0000 + ix_reg) }),
+				hi = part({ type = pt.FILT, x = x_reg - 2, y = y_regs_base - eu_spacing + 3, ctype = ix_reg == 0 and 0x10000000 or (0x10DE0000 + ix_reg) }),
 			}
 		end
 
-		for ix_reg = 0, regs - 1 do
-			part({ type = ix_reg == 0 and pt.FILT or pt.STOR, x = x_target - ix_reg * 2    , y = y_decode })
-			part({ type = ix_reg == 0 and pt.FILT or pt.STOR, x = x_target - ix_reg * 2 - 1, y = y_decode })
-		end
-		do
-			local x_end = x_target - regs * 2
-			part({ type = pt.CONV, x = x_end, y = y_decode, tmp = pt.FILT, ctype = pt.STOR })
-			for ix_bit = 0, 5 do
-				local b = bitx.lshift(1, ix_bit)
-				dray(x_end, y_decode, x_end + 1 + b, y_decode, b, pt.PSCN)
+		for ix_eu = 0, eus - 1 do -- usage site
+			local y_regs = y_regs_base + ix_eu * eu_spacing
+
+			local x_decode = x_regs + 17
+			local x_target = x_decode - 13
+			local y_decode = y_regs - 3
+
+			for ix_reg = 0, regs - 1 do
+				local x_reg = x_regs - ix_reg * 2
+
+				local source_lo = prev_regs[ix_reg].lo
+				prev_regs[ix_reg].lo = part({ type = pt.FILT, x = x_reg, y = y_regs })
+				ldtc(x_reg, y_regs - 1, source_lo.x, source_lo.y)
+				if ix_reg ~= 0 then
+					part({ type = pt.LDTC, x = x_reg + 1, y = y_regs - 1, life = 1, tmp = 1 })
+				end
+
+				local source_hi = prev_regs[ix_reg].hi
+				prev_regs[ix_reg].hi = part({ type = pt.FILT, x = x_reg - 2, y = y_regs + 3 })
+				ldtc(x_reg - 2, y_regs + 2, source_hi.x, source_hi.y)
+				if ix_reg ~= 0 then
+					part({ type = pt.LDTC, x = x_reg - 1, y = y_regs + 2, life = 4, tmp = 1 })
+				end
 			end
-			part({ type = pt.DMND, x = x_end, y = y_decode, z = 20000000 })
-		end
 
-		spark({ type = pt.METL, x = x_decode + 1, y = y_decode })
-		local pattern_head = part({ type = pt.FILT, x = x_decode - 1, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  2, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  3, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  4, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  5, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  6, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  7, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  8, y = y_decode })
-		part({ type = pt.FILT, x = x_decode -  9, y = y_decode })
-		part({ type = pt.FILT, x = x_decode - 10, y = y_decode, tmp = 1, ctype = 0x10000005 })
-		local query_bray =   { x = x_decode - 11, y = y_decode }
-		part({ type = pt.DMND, x = x_decode - 12, y = y_decode })
+			local function change_conductor(conductor, lsns_distance, invert_conv)
+				part({ type = pt.CONV, x = x_decode, y = y_decode, ctype = conductor, tmp = invert_conv or pt.SPRK, tmp2 = invert_conv and 1 or 0 })
+				part({ type = pt.CONV, x = x_decode, y = y_decode, ctype = pt.SPRK, tmp = conductor })
+				part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = lsns_distance or 1 })
+			end
 
-		for ix_writer = 0, writers - 1 do
-			local addr    = writer_info[writers - ix_writer - 1].addr
-			local data_lo = writer_info[writers - ix_writer - 1].data_lo
-			local data_hi = writer_info[writers - ix_writer - 1].data_hi
-
-			ldtc(x_decode, y_decode, addr.x, addr.y)
-			part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.FILT, ctype = pt.STOR })
-			change_conductor(pt.PSCN, 2)
-			cray(x_decode, y_decode, x_target, y_decode, pt.STOR, regs * 2, false)
-			dray(x_decode, y_decode, x_decode - 2, y_decode, 1, false)
-			dray(x_decode, y_decode, x_decode - 3, y_decode, 2, false)
-			dray(x_decode, y_decode, x_decode - 5, y_decode, 4, false)
-			dray(x_decode, y_decode, x_decode - 9, y_decode, 1, false)
-			part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.STOR, ctype = pt.FILT })
-			change_conductor(pt.METL, 2)
-
+			local bit_filt = {}
 			for ix_bit = 0, 4 do
-				local b = bitx.lshift(1, ix_bit)
+				bit_filt[ix_bit] = part({ type = pt.FILT, x = x_decode + 3 + ix_bit, y = y_decode, ctype = bitx.lshift(1, ix_bit) })
+			end
+			local lsns_life = part({ type = pt.FILT, x = x_decode + 2, y = y_decode, ctype = 0x10000003 })
 
-				ldtc(x_decode, y_decode, bit_filt[ix_bit].x, bit_filt[ix_bit].y)
-				part({ type = pt.ARAY, x = x_decode, y = y_decode })
+			local writer_info = {}
+			for ix_writer = 0, writers - 1 do
+				writer_info[ix_writer] = {
+					addr    = part({ type = pt.FILT, x = x_decode +  9 + ix_writer * 3, y = y_decode, ctype = 0x10000005 + ix_writer }),
+					data_lo = part({ type = pt.FILT, x = x_decode + 10 + ix_writer * 3, y = y_decode, ctype = 0x1000FE00 + ix_writer }),
+					data_hi = part({ type = pt.FILT, x = x_decode + 11 + ix_writer * 3, y = y_decode, ctype = 0x1000CA00 + ix_writer }),
+				}
+			end
+
+			for ix_reg = 0, regs - 1 do
+				part({ type = ix_reg == 0 and pt.FILT or pt.STOR, x = x_target - ix_reg * 2    , y = y_decode })
+				part({ type = ix_reg == 0 and pt.FILT or pt.STOR, x = x_target - ix_reg * 2 - 1, y = y_decode })
+			end
+			do
+				local x_end = x_target - regs * 2
+				part({ type = pt.CONV, x = x_end, y = y_decode, tmp = pt.FILT, ctype = pt.STOR })
+				for ix_bit = 0, 5 do
+					local b = bitx.lshift(1, ix_bit)
+					dray(x_end, y_decode, x_end + 1 + b, y_decode, b, pt.PSCN)
+				end
+				part({ type = pt.DMND, x = x_end, y = y_decode, z = 20000000 })
+			end
+
+			spark({ type = pt.METL, x = x_decode + 1, y = y_decode })
+			local pattern_head = part({ type = pt.FILT, x = x_decode - 1, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  2, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  3, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  4, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  5, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  6, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  7, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  8, y = y_decode })
+			part({ type = pt.FILT, x = x_decode -  9, y = y_decode })
+			part({ type = pt.FILT, x = x_decode - 10, y = y_decode, tmp = 1, ctype = 0x10000005 })
+			local query_bray =   { x = x_decode - 11, y = y_decode }
+			part({ type = pt.DMND, x = x_decode - 12, y = y_decode })
+
+			for ix_writer = 0, writers - 1 do
+				local addr    = writer_info[writers - ix_writer - 1].addr
+				local data_lo = writer_info[writers - ix_writer - 1].data_lo
+				local data_hi = writer_info[writers - ix_writer - 1].data_hi
+
+				ldtc(x_decode, y_decode, addr.x, addr.y)
 				part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.FILT, ctype = pt.STOR })
-
-				if ix_bit <= 1 then
-					change_conductor(pt.PSCN, 2)
-					if ix_bit == 0 then
-						cray(x_decode, y_decode, pattern_head.x - 2, pattern_head.y, pt.STOR, 2, false)
-						cray(x_decode, y_decode, pattern_head.x - 6, pattern_head.y, pt.STOR, 2, false)
-					else
-						cray(x_decode, y_decode, pattern_head.x - 4, pattern_head.y, pt.STOR, 4, false)
-					end
-
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.PSCN })
-					local inverted = ldtc(x_decode, y_decode, query_bray.x, query_bray.y, nil, 2)
-					inverted.ctype = pt.BRAY
-					inverted.tmp2 = 1
-					part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = 2 })
-					cray(x_decode, y_decode, pattern_head.x, pattern_head.y, pt.STOR, 8, false)
-
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.PSCN, ctype = pt.INSL })
-					change_conductor(pt.METL, 2, pt.STOR)
-
-					for ix_place = 0, regs - 1, 4 do
-						dray(x_decode, y_decode, x_target - ix_place * 2, y_decode, 8, false)
-					end
-
-					cray(x_decode, y_decode, pattern_head.x, pattern_head.y, pt.STOR, 1, false)
-					dray(x_decode, y_decode, x_decode - 2, y_decode, 1, false)
-					dray(x_decode, y_decode, x_decode - 3, y_decode, 2, false)
-					dray(x_decode, y_decode, x_decode - 5, y_decode, 4, false)
-				else
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.METL })
-					local normal = ldtc(x_decode, y_decode, query_bray.x, query_bray.y, nil, 1)
-					normal.ctype = pt.BRAY
-					part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = 2 })
-					for ix_place = 0, regs - 1, 4 do
-						if bitx.band(ix_place, b) == 0 then
-							dray(x_decode, y_decode, x_target - ix_place * 2, y_decode, 8, false)
-						end
-					end
-
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.INSL })
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.METL, ctype = pt.INSL })
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.INSL, ctype = pt.METL })
-
-					local inverted = ldtc(x_decode, y_decode, query_bray.x, query_bray.y, nil, 2)
-					inverted.ctype = pt.BRAY
-					inverted.tmp2 = 1
-					part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = 2 })
-					for ix_place = 0, regs - 1, 4 do
-						if bitx.band(ix_place, b) ~= 0 then
-							dray(x_decode, y_decode, x_target - ix_place * 2, y_decode, 8, false)
-						end
-					end
-
-					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.METL, ctype = pt.INSL })
-				end
-
-				change_conductor(pt.PSCN, 2, pt.STOR)
-				cray(x_decode, y_decode, query_bray.x, query_bray.y, pt.SPRK, 1, false)
+				change_conductor(pt.PSCN, 2)
+				cray(x_decode, y_decode, x_target, y_decode, pt.STOR, regs * 2, false)
+				dray(x_decode, y_decode, x_decode - 2, y_decode, 1, false)
+				dray(x_decode, y_decode, x_decode - 3, y_decode, 2, false)
+				dray(x_decode, y_decode, x_decode - 5, y_decode, 4, false)
+				dray(x_decode, y_decode, x_decode - 9, y_decode, 1, false)
 				part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.STOR, ctype = pt.FILT })
-				if ix_bit < 4 then
-					change_conductor(pt.METL, 2)
+				change_conductor(pt.METL, 2)
+
+				for ix_bit = 0, 4 do
+					local b = bitx.lshift(1, ix_bit)
+
+					ldtc(x_decode, y_decode, bit_filt[ix_bit].x, bit_filt[ix_bit].y)
+					part({ type = pt.ARAY, x = x_decode, y = y_decode })
+					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.FILT, ctype = pt.STOR })
+
+					if ix_bit <= 1 then
+						change_conductor(pt.PSCN, 2)
+						if ix_bit == 0 then
+							cray(x_decode, y_decode, pattern_head.x - 2, pattern_head.y, pt.STOR, 2, false)
+							cray(x_decode, y_decode, pattern_head.x - 6, pattern_head.y, pt.STOR, 2, false)
+						else
+							cray(x_decode, y_decode, pattern_head.x - 4, pattern_head.y, pt.STOR, 4, false)
+						end
+
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.PSCN })
+						local inverted = ldtc(x_decode, y_decode, query_bray.x, query_bray.y, nil, 2)
+						inverted.ctype = pt.BRAY
+						inverted.tmp2 = 1
+						part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = 2 })
+						cray(x_decode, y_decode, pattern_head.x, pattern_head.y, pt.STOR, 8, false)
+
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.PSCN, ctype = pt.INSL })
+						change_conductor(pt.METL, 2, pt.STOR)
+
+						for ix_place = 0, regs - 1, 4 do
+							dray(x_decode, y_decode, x_target - ix_place * 2, y_decode, 8, false)
+						end
+
+						cray(x_decode, y_decode, pattern_head.x, pattern_head.y, pt.STOR, 1, false)
+						dray(x_decode, y_decode, x_decode - 2, y_decode, 1, false)
+						dray(x_decode, y_decode, x_decode - 3, y_decode, 2, false)
+						dray(x_decode, y_decode, x_decode - 5, y_decode, 4, false)
+					else
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.METL })
+						local normal = ldtc(x_decode, y_decode, query_bray.x, query_bray.y, nil, 1)
+						normal.ctype = pt.BRAY
+						part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = 2 })
+						for ix_place = 0, regs - 1, 4 do
+							if bitx.band(ix_place, b) == 0 then
+								dray(x_decode, y_decode, x_target - ix_place * 2, y_decode, 8, false)
+							end
+						end
+
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.INSL })
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.METL, ctype = pt.INSL })
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.INSL, ctype = pt.METL })
+
+						local inverted = ldtc(x_decode, y_decode, query_bray.x, query_bray.y, nil, 2)
+						inverted.ctype = pt.BRAY
+						inverted.tmp2 = 1
+						part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = 2 })
+						for ix_place = 0, regs - 1, 4 do
+							if bitx.band(ix_place, b) ~= 0 then
+								dray(x_decode, y_decode, x_target - ix_place * 2, y_decode, 8, false)
+							end
+						end
+
+						part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.METL, ctype = pt.INSL })
+					end
+
+					change_conductor(pt.PSCN, 2, pt.STOR)
+					cray(x_decode, y_decode, query_bray.x, query_bray.y, pt.SPRK, 1, false)
+					part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.STOR, ctype = pt.FILT })
+					if ix_bit < 4 then
+						change_conductor(pt.METL, 2)
+					end
+				end
+
+				ldtc(x_decode, y_decode, data_lo.x, data_lo.y)
+				dray(x_decode, y_decode, x_decode - 3, y_decode, 1, false)
+				dray(x_decode, y_decode, x_decode - 5, y_decode, 3, false)
+				dray(x_decode, y_decode, x_decode - 9, y_decode, 1, false)
+				ldtc(x_decode, y_decode, data_hi.x, data_hi.y)
+				dray(x_decode, y_decode, x_decode - 8, y_decode, 1, false)
+				dray(x_decode, y_decode, x_decode - 6, y_decode, 1, false)
+				dray(x_decode, y_decode, x_decode - 4, y_decode, 1, false)
+				dray(x_decode, y_decode, x_decode - 2, y_decode, 1, false)
+				change_conductor(pt.METL, 2)
+				for ix_reg = 0, regs - 1, 4 do
+					dray(x_decode, y_decode, x_target - ix_reg * 2 + 1, y_decode, 9, false)
 				end
 			end
 
-			ldtc(x_decode, y_decode, data_lo.x, data_lo.y)
-			dray(x_decode, y_decode, x_decode - 3, y_decode, 1, false)
-			dray(x_decode, y_decode, x_decode - 5, y_decode, 3, false)
-			dray(x_decode, y_decode, x_decode - 9, y_decode, 1, false)
-			ldtc(x_decode, y_decode, data_hi.x, data_hi.y)
-			dray(x_decode, y_decode, x_decode - 8, y_decode, 1, false)
-			dray(x_decode, y_decode, x_decode - 6, y_decode, 1, false)
-			dray(x_decode, y_decode, x_decode - 4, y_decode, 1, false)
-			dray(x_decode, y_decode, x_decode - 2, y_decode, 1, false)
-			change_conductor(pt.METL, 2)
-			for ix_reg = 0, regs - 1, 4 do
-				dray(x_decode, y_decode, x_target - ix_reg * 2 + 1, y_decode, 9, false)
-			end
-		end
+			part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.METL })
+			part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.METL, ctype = pt.SPRK })
+			part({ type = pt.DMND, x = x_decode, y = y_decode })
 
-		part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.SPRK, ctype = pt.METL })
-		part({ type = pt.CONV, x = x_decode, y = y_decode, tmp = pt.METL, ctype = pt.SPRK })
-		part({ type = pt.DMND, x = x_decode, y = y_decode })
+			local read_from = 3
+			for ix_reader = 0, readers - 1 do
+				local x_reader = x_regs + ix_reader * 2 + 4
+				local ballast_type      = ix_reader % 2 == 0 and pt.CRMC or pt.HEAC
+				local next_ballast_type = ix_reader % 2 == 1 and pt.CRMC or pt.HEAC
 
-		local read_from = 3
-		for ix_reader = 0, readers - 1 do
-			local x_reader = x_regs + ix_reader * 2 + 4
-			local ballast_type      = ix_reader % 2 == 0 and pt.CRMC or pt.HEAC
-			local next_ballast_type = ix_reader % 2 == 1 and pt.CRMC or pt.HEAC
+				local addr_source_lo = part({ type = pt.FILT, x = x_reader + 5, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 2 - read_from * 2 })
+				local addr_source_hi = part({ type = pt.FILT, x = x_reader + 6, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 2 - read_from * 2 })
 
-			local addr_source_lo = part({ type = pt.FILT, x = x_reader + 5, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 2 - read_from * 2 })
-			local addr_source_hi = part({ type = pt.FILT, x = x_reader + 6, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 2 - read_from * 2 })
-
-			local function half(x, y, source)
-				local output = part({ type = pt.FILT, x = x    , y = y })
-				part({ type = pt.LDTC, x = x + 1, y = y })
-				if ix_reader == 0 then
-					part({ type = pt.CONV, x = x - 1, y = y - 1, tmp = pt.FILT, ctype = ballast_type })
+				local function half(x, y, source)
+					local output = part({ type = pt.FILT, x = x    , y = y })
+					part({ type = pt.LDTC, x = x + 1, y = y })
+					if ix_reader == 0 then
+						part({ type = pt.CONV, x = x - 1, y = y - 1, tmp = pt.FILT, ctype = ballast_type })
+					end
+					if ix_reader < readers - 1 then
+						part({ type = pt.CONV, x = x + 1, y = y - 1, tmp = pt.FILT, ctype = next_ballast_type })
+					end
+					part({ type = pt.CONV, x = x + 1, y = y - 1, tmp = ballast_type, ctype = pt.FILT })
+					ldtc(x + 1, y - 1, source.x, source.y)
+					part({ type = pt.LSNS, x = x + 1, y = y - 1, tmp = 3 })
+					return output
 				end
-				if ix_reader < readers - 1 then
-					part({ type = pt.CONV, x = x + 1, y = y - 1, tmp = pt.FILT, ctype = next_ballast_type })
-				end
-				part({ type = pt.CONV, x = x + 1, y = y - 1, tmp = ballast_type, ctype = pt.FILT })
-				ldtc(x + 1, y - 1, source.x, source.y)
-				part({ type = pt.LSNS, x = x + 1, y = y - 1, tmp = 3 })
-				return output
-			end
-			local output_lo = half(x_reader    , y_regs, addr_source_lo)
-			local output_hi = half(x_reader - 2, y_regs + 3, addr_source_hi)
+				local output_lo = half(x_reader    , y_regs, addr_source_lo)
+				local output_hi = half(x_reader - 2, y_regs + 3, addr_source_hi)
 
-			ldtc(x_reader - 4, y_regs + 4, output_lo.x, output_lo.y)
-			ldtc(x_reader - 3, y_regs + 4, output_hi.x, output_hi.y)
-			local addr_source_lo = part({ type = pt.FILT, x = x_reader - 5, y = y_regs + 5 })
-			local addr_source_hi = part({ type = pt.FILT, x = x_reader - 4, y = y_regs + 5 })
+				ldtc(x_reader - 4, y_regs + 4, output_lo.x, output_lo.y)
+				ldtc(x_reader - 3, y_regs + 4, output_hi.x, output_hi.y)
+				local addr_source_lo = part({ type = pt.FILT, x = x_reader - 5, y = y_regs + 5 })
+				local addr_source_hi = part({ type = pt.FILT, x = x_reader - 4, y = y_regs + 5 })
+			end
 		end
 	end
 
