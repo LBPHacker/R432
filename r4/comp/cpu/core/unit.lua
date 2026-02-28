@@ -76,6 +76,7 @@ return testbed.module(function(params, params_name)
 			local instr_mem  = instr_4:bor(instr_6)
 			local instr_mul  = instr_2:bor(instr_4i):bor(instr_5i):bor(instr_6):bor(instr_25i)
 			local instr_hltj = instr_2:bor(instr_3):bor(instr_4):bxor(1):bor(instr_6i)
+			local instr_j    = instr_2:bor(instr_3):bxor(1):bor(instr_4):bor(instr_6i)
 			local jaloff_lo, jaloff_hi
 			if has_jal then
 				local stretch_0 = inputs.instr_lo:band(0x1000F000)
@@ -111,6 +112,9 @@ return testbed.module(function(params, params_name)
 				             :bor(instr_mem:bxor(1))
 				             :bor(instr_mul:bxor(1))
 				             :bor(instr_hltj:bxor(1)):band(0x10000001)
+			end
+			if has_jal then
+				instr_output = instr_output:band(instr_j)
 			end
 			local output = defer:bxor(1):bsub(instr_output)
 			local incr_pc_outputs = incr_pc.component({
@@ -188,6 +192,9 @@ return testbed.module(function(params, params_name)
 				defer = defer or instr_mem or instr_mul or instr_jalr or instr_jal or instr_hlt
 			end
 			local output = bitx.band(inputs.instr_lo, 0x0050) == 0x0010
+			if has_jal then
+				output = output or instr_jalr or instr_jal
+			end
 			local pc = bitx.bor(bitx.band(inputs.pc_lo, 0xFFFF), bitx.lshift(bitx.band(inputs.pc_hi, 0xFFFF), 16))
 			local jaloff_lo, jaloff_hi
 			if has_jal then
