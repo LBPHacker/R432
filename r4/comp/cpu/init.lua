@@ -738,37 +738,49 @@ local function build_internal(params)
 		local x_regs      = 106
 		local y_regs_base = 110
 
+		local top_regs = {}
 		local prev_regs = {}
 		for ix_reg = 0, regs - 1 do
-			local x_reg = x_regs - ix_reg * 2
-			prev_regs[ix_reg] = {
-				lo = part({ type = pt.FILT, x = x_reg    , y = y_regs_base - eu_spacing    , ctype = ix_reg == 0 and 0x10000000 or (0x10AD0000 + ix_reg) }),
-				hi = part({ type = pt.FILT, x = x_reg - 2, y = y_regs_base - eu_spacing + 3, ctype = ix_reg == 0 and 0x10000000 or (0x10DE0000 + ix_reg) }),
+			local x_top_reg = x_regs - ix_reg * 2 + 1
+			top_regs[ix_reg] = {
+				lo = part({ type = pt.FILT, x = x_top_reg    , y = y_regs_base - eu_spacing, ctype = ix_reg == 0 and 0x10000000 or (0x10AD0000 + ix_reg) }),
+				hi = part({ type = pt.FILT, x = x_top_reg - 1, y = y_regs_base - eu_spacing, ctype = ix_reg == 0 and 0x10000000 or (0x10DE0000 + ix_reg) }),
 			}
+			prev_regs[ix_reg] = {
+				lo = top_regs[ix_reg].lo,
+				hi = top_regs[ix_reg].hi,
+			}
+			dray(top_regs[ix_reg].lo.x, top_regs[ix_reg].lo.y + eus * eu_spacing + 1, top_regs[ix_reg].lo.x, top_regs[ix_reg].lo.y    , 1, pt.PSCN)
+			dray(top_regs[ix_reg].hi.x, top_regs[ix_reg].hi.y + eus * eu_spacing + 2, top_regs[ix_reg].hi.x, top_regs[ix_reg].hi.y + 1, 2, pt.PSCN)
 		end
 
+		local x_regmove_left        = x_regs - 83
+		local x_regmove_ballast     = x_regmove_left - 2
+		local y_regmove_apom_top    = y_regs_base - eu_spacing
+		local y_regmove_apom_bottom = y_regs_base + (eus - 1) * eu_spacing + 5
+		local regmove_ballasts = {}
 		for ix_eu = 0, eus - 1 do -- usage site
 			local y_regs = y_regs_base + ix_eu * eu_spacing
 
 			local x_decode = x_regs + 17
-			local x_target = x_decode - 13
+			local x_target = x_decode - 13 - eu_spacing
 			local y_decode = y_regs - 3
 
 			for ix_reg = 0, regs - 1 do
-				local x_reg = x_regs - ix_reg * 2
+				local x_reg = x_regs - ix_reg * 2 + 1 - eu_spacing
 
 				local source_lo = prev_regs[ix_reg].lo
 				prev_regs[ix_reg].lo = part({ type = pt.FILT, x = x_reg, y = y_regs })
-				ldtc(x_reg, y_regs - 1, source_lo.x, source_lo.y)
+				part({ type = pt.LDTC, x = x_reg + 1, y = y_regs - 1, life = eu_spacing - 2 })
 				if ix_reg ~= 0 then
 					part({ type = pt.LDTC, x = x_reg + 1, y = y_regs - 1, life = 1, tmp = 1 })
 				end
 
 				local source_hi = prev_regs[ix_reg].hi
-				prev_regs[ix_reg].hi = part({ type = pt.FILT, x = x_reg - 2, y = y_regs + 3 })
-				ldtc(x_reg - 2, y_regs + 2, source_hi.x, source_hi.y)
+				prev_regs[ix_reg].hi = part({ type = pt.FILT, x = x_reg - 1, y = y_regs })
+				part({ type = pt.LDTC, x = x_reg, y = y_regs - 1, life = eu_spacing - 2 })
 				if ix_reg ~= 0 then
-					part({ type = pt.LDTC, x = x_reg - 1, y = y_regs + 2, life = 4, tmp = 1 })
+					part({ type = pt.LDTC, x = x_reg, y = y_regs - 1, life = 1, tmp = 1 })
 				end
 			end
 
@@ -820,6 +832,7 @@ local function build_internal(params)
 			part({ type = pt.FILT, x = x_decode - 10, y = y_decode, tmp = 1, ctype = 0x10000005 })
 			local query_bray =   { x = x_decode - 11, y = y_decode }
 			part({ type = pt.DMND, x = x_decode - 12, y = y_decode })
+			part({ type = pt.DMND, x = x_target +  1, y = y_decode })
 
 			for ix_writer = 0, writers - 1 do
 				local addr    = writer_info[writers - ix_writer - 1].addr
@@ -928,20 +941,18 @@ local function build_internal(params)
 
 			local read_from = 3
 			for ix_reader = 0, readers - 1 do
-				local x_reader = x_regs + ix_reader * 2 + 4
-				local ballast_type      = ix_reader % 2 == 0 and pt.CRMC or pt.HEAC
-				local next_ballast_type = ix_reader % 2 == 1 and pt.CRMC or pt.HEAC
+				local x_reader = x_regs + ix_reader * 4 + 3
 
-				local addr_source_lo = part({ type = pt.FILT, x = x_reader + 5, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 2 - read_from * 2 })
-				local addr_source_hi = part({ type = pt.FILT, x = x_reader + 6, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 2 - read_from * 2 })
+				local addr_source_lo = part({ type = pt.FILT, x = x_reader + 5, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 4 - read_from * 2 + 1 })
+				local addr_source_hi = part({ type = pt.FILT, x = x_reader + 7, y = y_regs - 5, ctype = 0x0FFFFFFA - ix_reader * 4 - read_from * 2     })
 
-				local function half(x, y, source)
+				local function half(x, y, source, ballast_type, next_ballast_type, first, last)
 					local output = part({ type = pt.FILT, x = x    , y = y })
 					part({ type = pt.LDTC, x = x + 1, y = y })
-					if ix_reader == 0 then
-						part({ type = pt.CONV, x = x - 1, y = y - 1, tmp = pt.FILT, ctype = ballast_type })
+					if first then
+						part({ type = pt.CONV, x = x    , y = y - 1, tmp = pt.FILT, ctype = ballast_type })
 					end
-					if ix_reader < readers - 1 then
+					if not last then
 						part({ type = pt.CONV, x = x + 1, y = y - 1, tmp = pt.FILT, ctype = next_ballast_type })
 					end
 					part({ type = pt.CONV, x = x + 1, y = y - 1, tmp = ballast_type, ctype = pt.FILT })
@@ -949,15 +960,42 @@ local function build_internal(params)
 					part({ type = pt.LSNS, x = x + 1, y = y - 1, tmp = 3 })
 					return output
 				end
-				local output_lo = half(x_reader    , y_regs, addr_source_lo)
-				local output_hi = half(x_reader - 2, y_regs + 3, addr_source_hi)
+				local output_lo = half(x_reader    , y_regs, addr_source_lo, pt.CRMC, pt.HEAC, ix_reader == 0, false)
+				local output_hi = half(x_reader + 2, y_regs, addr_source_hi, pt.HEAC, pt.CRMC, false, ix_reader == readers - 1)
 
-				ldtc(x_reader - 4, y_regs + 4, output_lo.x, output_lo.y)
-				ldtc(x_reader - 3, y_regs + 4, output_hi.x, output_hi.y)
-				local addr_source_lo = part({ type = pt.FILT, x = x_reader - 5, y = y_regs + 5 })
-				local addr_source_hi = part({ type = pt.FILT, x = x_reader - 4, y = y_regs + 5 })
+				-- ldtc(x_reader - 4, y_regs + 4, output_lo.x, output_lo.y)
+				-- ldtc(x_reader - 2, y_regs + 4, output_hi.x, output_hi.y)
+				-- part({ type = pt.FILT, x = x_reader - 5, y = y_regs + 5 })
+				-- part({ type = pt.FILT, x = x_reader - 3, y = y_regs + 5 })
 			end
+
+			part({ type = pt.INSL, x = x_regs + 2, y = y_regs })
+
+			part({ type = pt.PSTN, x = x_regmove_left    , y = y_regs })
+			part({ type = pt.PSTN, x = x_regmove_left - 1, y = y_regs, tmp = 64, extend = math.huge })
+			part({ type = pt.INSL, x = x_regmove_left - 3, y = y_regs })
+			local y_ballast = y_regs + eu_spacing
+			if ix_eu == eus - 1 then
+				y_ballast = y_regs + 3
+			end
+			local ballast = part({ type = pt.HEAC, x = x_regmove_ballast, y = y_ballast })
+			solid_spark(x_regmove_left, y_regs + 2, -1, -1, pt.PSCN)
+			lsns_spark({ type = pt.NSCN, x = x_regmove_left - 2, y = y_regs + 1, life = 3 }, -1, 1, 0, 1)
+
+			cray(ballast.x, y_regmove_apom_top, ballast.x, ballast.y, pt.HEAC, 1, pt.PSCN)
+			dray(ballast.x, y_regmove_apom_top, ballast.x, y_regs, 1, pt.PSCN)
+			regmove_ballasts[ix_eu] = {
+				part   = ballast,
+				y_regs = y_regs,
+			}
 		end
+		for ix_eu = eus - 1, 0, -1 do
+			local ballast = regmove_ballasts[ix_eu].part
+			local y_regs  = regmove_ballasts[ix_eu].y_regs
+			cray(ballast.x, y_regmove_apom_bottom, ballast.x, y_regs, pt.HEAC, 1, pt.PSCN)
+			cray(ballast.x, y_regmove_apom_bottom, ballast.x, ballast.y, pt.HEAC, 1, pt.PSCN)
+		end
+		part({ type = pt.PSTN, x = x_regmove_ballast, y = y_regmove_apom_top + 1, tmp = 64 })
 	end
 
 	return parts
