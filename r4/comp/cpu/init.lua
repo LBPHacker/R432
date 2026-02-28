@@ -22,15 +22,17 @@ local function build_internal(params)
 	local cray          = ucontext.cray
 	local aray          = ucontext.aray
 
-	local eu_spacing = 20
-	local eus        = 2
+	local eu_spacing       = 20
+	local eus              = 2
+	local height           = 64
+	local width_order      = 7
+	local max_height_order = 6
 
 	local x_body = 10
 	local y_body = 10
+	local x_bank = x_body
+	local y_bank = y_body + height + 2
 	if true then -- memory
-		local height           = 64
-		local width_order      = 7
-		local max_height_order = 6
 
 		local function memory32(p, value)
 			local bray = bitx.band(value, 1) ~= 0
@@ -109,8 +111,6 @@ local function build_internal(params)
 		local y_horiz_bank
 		local head_sparks
 		do -- vertical axis
-			local x_bank = x_body
-			local y_bank = y_body + height + 2
 			y_horiz_bank = y_bank
 			local x_piston = x_bank - 14
 			local x_head = x_bank - 3
@@ -266,7 +266,7 @@ local function build_internal(params)
 			part({ type = pt.HEAC, x = x_fetch +  5, y = y_fetch     })
 			part({ type = pt.FILT, x = x_fetch +  6, y = y_fetch     })
 			part({ type = pt.PSTN, x = x_fetch -  2, y = y_fetch, extend =  1, debug_dcolour = 0xFF007FFF })
-			for i = 0, width_order + height_order - 1 do
+			for i = 0, width_order + max_height_order - 1 do
 				part({ type = pt.PSTN, x = x_fetch - 3 - i, y = y_fetch, extend = 0, debug_dcolour = 0xFF00FF00 })
 			end
 			part({ type = pt.PSTN, x = x_fetch - 16, y = y_fetch, extend =  2, debug_dcolour = 0xFF007FFF })
@@ -663,11 +663,11 @@ local function build_internal(params)
 				-- important: the ids of the pistons here never change, they get allocated from the same set every time
 				do
 					-- without this, the pistons would extend due to the sparks below
-					local x_pacify = x_decode - 2 * width_order - height_order - 5
-					cray(x_pacify, y_decode, first_piston.x, first_piston.y, pt.INSL, 2 * width_order + height_order, pt.PSCN)
+					local x_pacify = x_decode - 2 * width_order - max_height_order - 5
+					cray(x_pacify, y_decode, first_piston.x, first_piston.y, pt.INSL, 2 * width_order + max_height_order, pt.PSCN)
 				end
 				change_conductor(pt.PSCN, pt.CRMC)
-				cray(x_decode, y_decode, last_piston.x, last_piston.y, pt.STOR, 2 * width_order + height_order - 1, false)
+				cray(x_decode, y_decode, last_piston.x, last_piston.y, pt.STOR, 2 * width_order + max_height_order - 1, false)
 				change_conductor(pt.METL)
 				local function handle_bit(piston_bit, piston_index, invert, last) -- TODO: rework in terms of conditional cray
 					ldtc(x_decode, y_decode, pistons[piston_index].bit_filt.x, pistons[piston_index].bit_filt.y)
@@ -706,9 +706,9 @@ local function build_internal(params)
 					local stagger = (piston.x + 1) % 2
 					dray(piston.x, y_usage - stagger, piston.x, y_vert_bank + 1 - stagger, 2 - stagger, pt.PSCN)
 				end
-				for i = 0, height_order - 1 do
+				for i = 0, max_height_order - 1 do
 					local piston_index = 14 + i
-					handle_bit(height_order - i, piston_index, true, false)
+					handle_bit(max_height_order - i, piston_index, true, false)
 					local piston = pistons[piston_index].part
 					local stagger = (piston.x + 1) % 2
 					dray(piston.x, y_usage - stagger, piston.x, y_horiz_bank - stagger, 2 - stagger, pt.PSCN)
@@ -740,8 +740,9 @@ local function build_internal(params)
 		local regs        = 32
 		local writers     = 4
 		local readers     = 8
-		local x_regs      = 105
-		local y_regs_base = 111
+
+		local x_regs      = x_bank + 95
+		local y_regs_base = y_bank + 35
 
 		local top_regs = {}
 		local prev_regs = {}
