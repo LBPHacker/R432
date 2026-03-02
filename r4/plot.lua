@@ -27,15 +27,16 @@ local function run(params)
 	local parts = cpu.build_internal(params)
 
 	local aftersimdraw
+	local tick
 	if params.debug_stacks then
 		local aftersimdraw_user_stacks = plot.aftersimdraw_user_stacks(params.debug_stacks.x, params.debug_stacks.y, x, y, parts)
-		local prev_aftersimdraw = aftersimdraw
-		aftersimdraw = function()
+		local prev_tick = tick
+		tick = function()
 			aftersimdraw_user_stacks()
-			if not prev_aftersimdraw then
+			if not prev_tick then
 				return
 			end
-			return prev_aftersimdraw()
+			return prev_tick()
 		end
 	end
 
@@ -65,10 +66,16 @@ local function run(params)
 		if aftersimdraw then
 			event.unregister(event.AFTERSIMDRAW, aftersimdraw)
 		end
+		if tick then
+			event.unregister(event.TICK, tick)
+		end
 		rawset(_G, "r4plot", nil)
 	end
 	if aftersimdraw then
 		event.register(event.AFTERSIMDRAW, aftersimdraw)
+	end
+	if tick then
+		event.register(event.TICK, tick)
 	end
 	local r4plot = {
 		unregister = unregister,

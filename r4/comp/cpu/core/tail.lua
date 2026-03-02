@@ -17,10 +17,11 @@ return testbed.module(function(params)
 			temp_final    = 0.5,
 			temp_loss     = 1e-6,
 			round_length  = 10000,
+			seed          = { 0x56789ABC, 0x87654324 },
 		},
 		stacks        = 2,
 		storage_slots = 90,
-		work_slots    = 30,
+		work_slots    = 25,
 		inputs = {
 			{ name = "pc_lo"   , index =  1, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "pc_hi"   , index =  3, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },

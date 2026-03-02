@@ -18,3 +18,5 @@ function generate() {
 }
 generate "r4.comp.cpu.memory_rw" r4/comp/cpu/memory_rw/generated.lua
 generate "r4.comp.cpu.reg_r"     r4/comp/cpu/reg_r/generated.lua
+generate "r4.comp.cpu.core.head" r4/comp/cpu/core/generated_head.lua
+generate "r4.comp.cpu.core.tail" r4/comp/cpu/core/generated_tail.lua
