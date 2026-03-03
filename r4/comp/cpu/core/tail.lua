@@ -43,12 +43,11 @@ return testbed.module(function(params)
 			{ name = "res_rd"        , index = 13, keepalive = 0x10000000, payload = 0x0000001F },
 		},
 		func = function(inputs)
-			local instr = inputs.instr:bor(1)
 			local instr_split_outputs = instr_split.component({
-				instr = instr,
+				instr = inputs.instr,
 			})
 			local regs_outputs = regs.component({
-				instr = instr,
+				instr = inputs.instr,
 			})
 			local instr_2    = spaghetti.rshiftk(instr_split_outputs.instr_lo, 2)
 			local instr_2i   = instr_2:bxor(1)
@@ -73,7 +72,7 @@ return testbed.module(function(params)
 				pc_lo    = inputs.pc_lo,
 				pc_hi    = inputs.pc_hi,
 				defer    = inputs.shutdown,
-				instr    = instr,
+				instr    = inputs.instr,
 				instr_lo = instr_split_outputs.instr_lo,
 				instr_hi = instr_split_outputs.instr_hi,
 			})

@@ -59,7 +59,7 @@ return testbed.module(function(params)
 		func = function(inputs)
 			local regs_outputs = {}
 			for ix_unit = 0, units do
-				inputs["instr_" .. ix_unit] = inputs["instr_" .. ix_unit]:bor(1)
+				inputs["instr_" .. ix_unit] = inputs["instr_" .. ix_unit]
 				regs_outputs[ix_unit] = regs.component({
 					instr = inputs["instr_" .. ix_unit],
 				})
@@ -93,7 +93,7 @@ return testbed.module(function(params)
 				inputs["lhs_hi_" .. (ix_unit + 1)] = unit_outputs.next_lhs_hi
 				inputs["rhs_lo_" .. (ix_unit + 1)] = unit_outputs.next_rhs_lo
 				inputs["rhs_hi_" .. (ix_unit + 1)] = unit_outputs.next_rhs_hi
-				inputs["instr_"  .. (ix_unit + 1)]  = unit_outputs.next_instr
+				inputs["instr_"  .. (ix_unit + 1)] = unit_outputs.next_instr
 				pc_lo  = unit_outputs.pc_lo
 				pc_hi  = unit_outputs.pc_hi
 				outputs["res_lo_" .. ix_unit] = unit_outputs.res_lo

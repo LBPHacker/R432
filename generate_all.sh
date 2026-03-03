@@ -16,7 +16,8 @@ function generate() {
 	fi
 	luajit TPT-Script-Manager/modulepack.lua modulepack.build.conf:spaghetti/modulepack.build.conf run "$1" plot none build "$2"
 }
-generate "r4.comp.cpu.memory_rw" r4/comp/cpu/memory_rw/generated.lua
-generate "r4.comp.cpu.reg_r"     r4/comp/cpu/reg_r/generated.lua
-generate "r4.comp.cpu.core.head" r4/comp/cpu/core/generated_head.lua
-generate "r4.comp.cpu.core.tail" r4/comp/cpu/core/generated_tail.lua
+generate "r4.comp.cpu.bus_control" r4/comp/cpu/bus_control/generated.lua
+generate "r4.comp.cpu.memory_rw"   r4/comp/cpu/memory_rw/generated.lua
+generate "r4.comp.cpu.reg_r"       r4/comp/cpu/reg_r/generated.lua
+generate "r4.comp.cpu.core.head"   r4/comp/cpu/core/generated_head.lua
+generate "r4.comp.cpu.core.tail"   r4/comp/cpu/core/generated_tail.lua

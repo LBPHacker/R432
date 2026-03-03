@@ -557,6 +557,12 @@ local function build_internal(params)
 				[ 34 ] = x_write + 4 - x_core - 3,
 				[ 35 ] = x_ldtc_1    - x_core - 3,
 				[ 36 ] = x_ldtc_2    - x_core - 3,
+				[ 37 ] = 60,
+				[ 38 ] = 61,
+				[ 39 ] = 62,
+				[ 40 ] = 63,
+				[ 41 ] = 64,
+				[ 42 ] = 65,
 			})
 			for _, info in ipairs({
 				{ name = "control", index =  1, initial = 0x10000000 },
@@ -613,7 +619,7 @@ local function build_internal(params)
 				dray(x_write  + 1, y_usage, x_write + 7, y_usage, 1, pt.INST)
 				dray(x_write  + 1, y_usage, x_dray - 5, y_usage, 6, pt.INST)
 				for i = 5, 2, -1 do
-					part({ type = pt.CRMC, x = x_dray - i, y = y_usage })
+					part({ type = pt.CRMC, x = x_dray - i, y = y_usage, unstack = true })
 				end
 
 				dray(x_ldtc_2 + 2, y_usage, x_write + 6, y_usage, 1, pt.PSCN)
