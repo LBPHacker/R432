@@ -1,11 +1,12 @@
-local plot      = require("spaghetti.plot")
-local check     = require("spaghetti.check")
-local misc      = require("spaghetti.misc")
-local bitx      = require("spaghetti.bitx")
-local memory_rw = require("r4.comp.cpu.memory_rw.generated")
-local reg_r     = require("r4.comp.cpu.reg_r.generated")
-local head      = require("r4.comp.cpu.core.generated_head")
-local tail      = require("r4.comp.cpu.core.generated_tail")
+local plot        = require("spaghetti.plot")
+local check       = require("spaghetti.check")
+local misc        = require("spaghetti.misc")
+local bitx        = require("spaghetti.bitx")
+local bus_control = require("r4.comp.cpu.bus_control.generated")
+local memory_rw   = require("r4.comp.cpu.memory_rw.generated")
+local reg_r       = require("r4.comp.cpu.reg_r.generated")
+local head        = require("r4.comp.cpu.core.generated_head")
+local tail        = require("r4.comp.cpu.core.generated_tail")
 
 local audited_pairs = pairs
 
@@ -337,7 +338,7 @@ local function build_internal(params)
 			local y_usage      = y_ix_eu(ix_eu)
 			local y_usage_next = y_ix_eu_next(ix_eu)
 
-			local address_source = part({ type = pt.FILT, x = x_body - 2, y = y_usage - 5, tmp = 1, ctype = 0x11BA0BAD }) -- TODO
+			-- local address_source = part({ type = pt.FILT, x = x_body - 2, y = y_usage - 5, tmp = 1, ctype = 0x11BA0BAD }) -- TODO
 
 			local function assert_identical(a, b)
 				local function one_way(x, y)
@@ -564,20 +565,20 @@ local function build_internal(params)
 				[ 41 ] = 64,
 				[ 42 ] = 65,
 			})
-			for _, info in ipairs({
-				{ name = "control", index =  1, initial = 0x10000000 },
-				{ name = "core_lo", index =  3, initial = 0x10000000 },
-				{ name = "core_hi", index =  5, initial = 0x10000000 },
-				{ name = "addr_lo", index = 11, initial = 0x10000000 },
-			}) do
-				part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage - 1 })
-				local source = part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage - 4, ctype = info.initial })
-				if info.name == "addr_lo" then
-					source.y = address_source.y
-					ldtc(source.x - 1, source.y, address_source.x, address_source.y)
-				end
-				ldtc(x_core + info.index + 2, y_usage - 2, source.x, source.y)
-			end
+			-- for _, info in ipairs({
+			-- 	{ name = "control", index =  1, initial = 0x10000000 },
+			-- 	{ name = "core_lo", index =  3, initial = 0x10000000 },
+			-- 	{ name = "core_hi", index =  5, initial = 0x10000000 },
+			-- 	{ name = "addr_lo", index = 11, initial = 0x10000000 },
+			-- }) do
+			-- 	part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage - 1 })
+			-- 	local source = part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage - 4, ctype = info.initial })
+			-- 	if info.name == "addr_lo" then
+			-- 		source.y = address_source.y
+			-- 		ldtc(source.x - 1, source.y, address_source.x, address_source.y)
+			-- 	end
+			-- 	ldtc(x_core + info.index + 2, y_usage - 2, source.x, source.y)
+			-- end
 			-- for _, info in ipairs({
 			-- 	{ name = "core_lo" , index = 1 },
 			-- 	{ name = "core_hi" , index = 3 },
@@ -706,7 +707,7 @@ local function build_internal(params)
 				part({ type = pt.FILT, x = x_decode - 1, y = y_decode, ctype = 0x10000003 })
 				part({ type = pt.STOR, x = x_decode - 2, y = y_decode })
 				part({ type = pt.FILT, x = x_decode - 3, y = y_decode, tmp = 1, ctype = 0x1000DEAD })
-				ldtc(x_decode - 3, y_decode - 1, address_source.x, address_source.y)
+				-- ldtc(x_decode - 3, y_decode - 1, address_source.x, address_source.y)
 
 				-- important: the ids of the pistons here never change, they get allocated from the same set every time
 				do
@@ -1151,6 +1152,12 @@ local function build_internal(params)
 				-- [ 36 ] = x_ldtc_2    - x_core - 3,
 			})
 			plot.merge_parts(x_core, y_core + 2, parts, tail.get_parts(), {
+				-- [ 33 ] = x_write + 2 - x_core - 3,
+				-- [ 34 ] = x_write + 4 - x_core - 3,
+				-- [ 35 ] = x_ldtc_1    - x_core - 3,
+				-- [ 36 ] = x_ldtc_2    - x_core - 3,
+			})
+			plot.merge_parts(x_core + 70, y_core + 6, parts, bus_control.get_parts(), {
 				-- [ 33 ] = x_write + 2 - x_core - 3,
 				-- [ 34 ] = x_write + 4 - x_core - 3,
 				-- [ 35 ] = x_ldtc_1    - x_core - 3,

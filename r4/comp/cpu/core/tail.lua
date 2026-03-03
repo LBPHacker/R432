@@ -26,7 +26,7 @@ return testbed.module(function(params)
 			{ name = "pc_lo"   , index =  1, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "pc_hi"   , index =  3, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "shutdown", index =  5, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
-			{ name = "start"   , index =  7, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
+			{ name = "start"   , index =  7, keepalive = 0x10000000, payload = 0x00000003, initial = 0x10000000 },
 			{ name = "lhs_lo"  , index =  9, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "lhs_hi"  , index = 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "rhs_lo"  , index = 13, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
@@ -104,7 +104,7 @@ return testbed.module(function(params)
 			return {
 				pc_lo          = pc_lo,
 				pc_hi          = pc_hi,
-				shutdown       = inputs.shutdown:bor(instr_hlt:bxor(1)):bsub(inputs.start):bor(0x10000000):band(0x10000001),
+				shutdown       = inputs.shutdown:bor(instr_hlt:bxor(1)):bsub(inputs.start):bor(spaghetti.rshiftk(inputs.start, 1)):bor(0x10000000):band(0x10000001),
 				addr_lo        = addr_lo,
 				res_lo_addr_hi = res_lo_addr_hi,
 				res_hi         = unit_outputs.res_hi,
@@ -116,7 +116,7 @@ return testbed.module(function(params)
 				pc_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				pc_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				shutdown = bitx.bor(math.random(0x0000, 0x0001), 0x10000000),
-				start    = bitx.bor(math.random(0x0000, 0x0001), 0x10000000),
+				start    = bitx.bor(math.random(0x0000, 0x0003), 0x10000000),
 				lhs_lo   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				lhs_hi   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				rhs_lo   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
@@ -184,6 +184,9 @@ return testbed.module(function(params)
 			end
 			if bitx.band(inputs.start, 1) ~= 0 then
 				shutdown = false
+			end
+			if bitx.band(inputs.start, 2) ~= 0 then
+				shutdown = true
 			end
 			local memmode = bitx.band(bitx.rshift(instr_split_outputs.instr_lo, 12), 7)
 			local control = 0
