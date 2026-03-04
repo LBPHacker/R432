@@ -21,7 +21,7 @@ return testbed.module(function(params)
 			{ name = "addr_lo"       , index = 32, keepalive = 0x10000000, payload = 0x03FFFFFF, initial = 0x10000000 },
 			{ name = "res_lo_addr_hi", index = 30, keepalive = 0x10000000, payload = 0x07FFFFFF, initial = 0x10000000 },
 			{ name = "res_hi"        , index = 33, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-			{ name = "bus_lo"        , index =  7, keepalive = 0x10000000, payload = 0x0003FFFF, initial = 0x10000000 },
+			{ name = "bus_lo"        , index =  5, keepalive = 0x10000000, payload = 0x0003FFFF, initial = 0x10000000 },
 			{ name = "bus_hi"        , index = 38, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "res_rd"        , index = 31, keepalive = 0x10000000, payload = 0x0000001F, initial = 0x10000000 },
 			{ name = "mem_rest"      , index = 36, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },

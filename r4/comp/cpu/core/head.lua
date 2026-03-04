@@ -15,10 +15,10 @@ return testbed.module(function(params)
 		{ name = "pc_lo"           , index = 62, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "pc_hi"           , index = 64, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "defer"           , index = 66, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
-		{ name = "lhs_lo_" .. units, index = 61, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-		{ name = "lhs_hi_" .. units, index = 63, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-		{ name = "rhs_lo_" .. units, index = 65, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-		{ name = "rhs_hi_" .. units, index = 67, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+		{ name = "lhs_lo_" .. units, index = 85, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+		{ name = "lhs_hi_" .. units, index = 87, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+		{ name = "rhs_lo_" .. units, index = 89, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+		{ name = "rhs_hi_" .. units, index = 91, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "instr_"  .. units, index = 86, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 	}
 	local outputs = {
@@ -31,14 +31,14 @@ return testbed.module(function(params)
 		{ name = "instr_"  .. units, index = 71, keepalive = 0x00000001, payload = 0xFFFFFFFE },
 	}
 	for ix_unit = 0, units - 1 do
-		table.insert(inputs , { name = "lhs_lo_" .. ix_unit, index = 69 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
-		table.insert(inputs , { name = "lhs_hi_" .. ix_unit, index = 71 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
-		table.insert(inputs , { name = "rhs_lo_" .. ix_unit, index = 73 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
-		table.insert(inputs , { name = "rhs_hi_" .. ix_unit, index = 75 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
+		table.insert(inputs , { name = "lhs_lo_" .. ix_unit, index = 61 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
+		table.insert(inputs , { name = "lhs_hi_" .. ix_unit, index = 63 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
+		table.insert(inputs , { name = "rhs_lo_" .. ix_unit, index = 65 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
+		table.insert(inputs , { name = "rhs_hi_" .. ix_unit, index = 67 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
 		table.insert(inputs , { name = "instr_"  .. ix_unit, index = 80 + ix_unit * 2, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 })
-		table.insert(outputs, { name = "res_lo_" .. ix_unit, index = 81 + ix_unit * 3, keepalive = 0x10000000, payload = 0x0000FFFF })
-		table.insert(outputs, { name = "res_hi_" .. ix_unit, index = 82 + ix_unit * 3, keepalive = 0x10000000, payload = 0x0000FFFF })
-		table.insert(outputs, { name = "res_rd_" .. ix_unit, index = 80 + ix_unit * 3, keepalive = 0x10000000, payload = 0x0000001F })
+		table.insert(outputs, { name = "res_lo_" .. ix_unit, index = 79 + ix_unit * 3, keepalive = 0x10000000, payload = 0x0000FFFF })
+		table.insert(outputs, { name = "res_hi_" .. ix_unit, index = 80 + ix_unit * 3, keepalive = 0x10000000, payload = 0x0000FFFF })
+		table.insert(outputs, { name = "res_rd_" .. ix_unit, index = 78 + ix_unit * 3, keepalive = 0x10000000, payload = 0x0000001F })
 	end
 	return {
 		tag = "core.head",

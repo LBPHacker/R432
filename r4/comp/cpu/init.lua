@@ -11,6 +11,12 @@ local tail        = require("r4.comp.cpu.core.generated_tail")
 local audited_pairs = pairs
 
 local function build_internal(params)
+	check.integer_range("params.mem_row_count", params.mem_row_count, 1, 64)
+	check.integer_range("params.core_count", params.core_count, 1, 50)
+	if params.machine_id ~= nil then
+		check.integer("params.machine_id", params.machine_id)
+	end
+
 	local parts = {}
 
 	local pt = plot.pt
@@ -26,9 +32,10 @@ local function build_internal(params)
 	local cray          = ucontext.cray
 	local aray          = ucontext.aray
 
+	local machine_id       = params.machine_id or 0x1337
 	local eu_spacing       = 16
-	local eus              = 3
-	local height           = 37
+	local eus              = params.core_count
+	local height           = params.mem_row_count
 	local width_order      = 7
 	local max_height_order = 6
 
@@ -57,10 +64,10 @@ local function build_internal(params)
 		local function memory32(p, value)
 			local bray = bitx.band(value, 1) ~= 0
 			return mutate(p, {
-				type  = bray and pt.BRAY or pt.FILT,
-				life  = bray and     988 or 4,
-				tmp   = bray and       1 or 0,
-				ctype = bitx.bor(bitx.band(value, 0xFFFFFFFE), 1),
+				type    = bray and pt.BRAY or pt.FILT,
+				life    = bray and     988 or 4,
+				tmp     = bray and       1 or 0,
+				ctype   = bitx.bor(bitx.band(value, 0xFFFFFFFE), 1),
 			})
 		end
 
@@ -442,8 +449,11 @@ local function build_internal(params)
 			part({ type = pt.FILT, x = type_query_filt.x, y = y_usage - 1, ctype = 0x20000000 })
 			dray(type_query_filt.x, y_usage, type_query_filt.x, type_query_filt.y, 1, pt.PSCN)
 			part({ type = pt.LSNS, x = x_usage - 11, y = y_usage - 2, tmp = 3 })
-			local pc_row = part({ type = pt.FILT, x = x_usage - 10, y = y_usage - 3, ctype = 0x10000025 })
-			dray(x_usage + width - 3, pc_row.y, pc_row.x, pc_row.y, 1, pt.PSCN)
+			do
+				local source = part({ type = pt.CRAY, x = x_usage + width - 4, y = y_usage - 3, tmp = 4, tmp2 = 9, ctype = pt.LDTC })
+				part({ type = pt.LSNS, x = source.x - 1, y = source.y, tmp = 3 })
+				dray(source.x + 1, source.y, x_usage - 11, source.y, 1, pt.PSCN)
+			end
 
 			do
 				local temp_target = { x = type_query_filt.x + 7, y = y_usage_next }
@@ -482,7 +492,7 @@ local function build_internal(params)
 
 			if ix_eu > 0 then
 				local y_flip_top = {
-					[ -17 ] = { { y = y_eu + 3, count = 11 }, { y = y_eu - 13, count = 11 } },
+					[ -17 ] = { { y = y_eu + 4, count = 10 }, { y = y_eu - 14, count = 12 } },
 					[ -15 ] = { { y = y_eu + 3, count = 11 }, { y = y_eu -  4, count =  2 } },
 					[ -13 ] = { { y = y_eu + 3, count = 11 } },
 					[ -11 ] = { { y = y_eu + 4, count =  9 } },
@@ -866,38 +876,19 @@ local function build_internal(params)
 				part({ type = pt.LSNS, x = x_decode, y = y_decode, tmp = 3, tmp2 = lsns_distance or 1 })
 			end
 
-			local read_from = 6
-			local alloc_filt
-			do
-				local filt_allocs = {}
-				local first_x = x_decode + 2
-				function alloc_filt(x)
-					if not x then
-						x = first_x
-						while filt_allocs[x] do
-							x = x + 1
-						end
-					end
-					assert(not filt_allocs[x])
-					filt_allocs[x] = true
-					return x
-				end
-			end
-			alloc_filt(x_write_dray)
-
 			do
 				local y_core = y_regs - 2
 				local remap = {}
 				for ix_remap = 0, 15 do
-					remap[ix_remap] = ix_remap * 2 - x_reg_core + 108
+					remap[ix_remap] = ix_remap * 2 - x_reg_core + 108 - 2
 				end
 				for ix_remap = 16, 27 do
-					remap[ix_remap] = ix_remap - x_reg_core + 74
+					remap[ix_remap] = ix_remap - x_reg_core + 74 - 2
 				end
 				for ix_remap = 28, 30 do
-					remap[ix_remap] = ix_remap * 2 - x_reg_core + 69
+					remap[ix_remap] = ix_remap * 2 - x_reg_core + 69 - 2
 				end
-				plot.merge_parts(x_reg_core, y_core, parts, reg_r.get_parts(), remap)
+				plot.merge_parts(x_reg_core + 2, y_core, parts, reg_r.get_parts(), remap)
 
 				ldtc(instr_fetch_1.x, y_core - 2, instr_fetch_1.x, instr_fetch_1.y, -10000000)
 				ldtc(instr_fetch_2.x, y_core - 2, instr_fetch_2.x, instr_fetch_2.y, -10000000)
@@ -958,6 +949,9 @@ local function build_internal(params)
 				part({ type = pt.LDTC, x = x_instr_2 - 29, y = y_core -  4, life = 5 })
 				part({ type = pt.LDTC, x = x_instr_2 - 28, y = y_core -  4, life = 5 })
 				part({ type = pt.LDTC, x = x_instr_2 + 12, y = y_core -  4, life = 1 })
+
+				part({ type = pt.LDTC, x = x_instr_2 - 18, y = y_core -  2, life = 9 })
+				part({ type = pt.LDTC, x = x_instr_2 - 17, y = y_core -  2, life = 9 })
 				part({ type = pt.LDTC, x = x_instr_2 - 16, y = y_core -  2, life = 9 })
 				part({ type = pt.LDTC, x = x_instr_2 - 15, y = y_core -  2, life = 9 })
 				part({ type = pt.LDTC, x = x_instr_2 - 14, y = y_core -  2, life = 9 })
@@ -965,13 +959,13 @@ local function build_internal(params)
 				part({ type = pt.LDTC, x = x_instr_2 - 12, y = y_core -  2, life = 9 })
 				part({ type = pt.LDTC, x = x_instr_2 - 11, y = y_core -  2, life = 9 })
 				part({ type = pt.LDTC, x = x_instr_2 - 10, y = y_core -  2, life = 9 })
-				part({ type = pt.LDTC, x = x_instr_2 -  9, y = y_core -  2, life = 9 })
-				part({ type = pt.LDTC, x = x_instr_2 -  8, y = y_core -  2, life = 9 })
+
 				part({ type = pt.LDTC, x = x_instr_2 -  7, y = y_core -  2 })
 				part({ type = pt.LDTC, x = x_instr_2 -  6, y = y_core -  2 })
 				part({ type = pt.LDTC, x = x_instr_2 -  5, y = y_core -  2 })
-				part({ type = pt.LDTC, x = x_instr_2 +  4, y = y_core -  7 })
-				part({ type = pt.FILT, x = x_instr_2 +  5, y = y_core -  8, ctype = 0x10000000 + height - 1 })
+				part({ type = pt.LDTC, x = x_instr_2 +  6, y = y_core -  7, life = 1, tmp = 1 })
+				part({ type = pt.FILT, x = x_instr_2 +  4, y = y_core -  9, ctype = 0x10000000 + height - 1 })
+
 				part({ type = pt.BRAY, x = x_instr_2 +  6, y = y_core -  6, life = 1 })
 				aray(x_instr_2 + 8, y_core - 6, 1, 0, false, nil, 1)
 				solid_spark(x_instr_2 + 9, y_core - 5, 0, -1, pt.METL)
@@ -992,31 +986,34 @@ local function build_internal(params)
 					part({ type = pt.INSL, x = x_instr_2 - 22, y = y_core - 13 })
 				end
 
-				part({ type = pt.FILT, x = x_instr_2 + 14, y = res_hi.y })
-				part({ type = pt.FILT, x = x_instr_2 + 13, y = res_hi.y })
+				part({ type = pt.FILT, x = x_instr_2 + 14, y = res_hi.y, dcolour = 0xFF00FFFF })
+				part({ type = pt.FILT, x = x_instr_2 + 13, y = res_hi.y, dcolour = 0xFF00FFFF })
 				ldtc(x_instr_2 + 12, res_hi.y, res_hi.x, res_hi.y)
-				part({ type = pt.FILT, x = x_instr_2 + 14, y = res_lo_addr_hi.y })
-				part({ type = pt.FILT, x = x_instr_2 + 13, y = res_lo_addr_hi.y })
+				part({ type = pt.FILT, x = x_instr_2 + 14, y = res_lo_addr_hi.y, dcolour = 0xFF00FFFF })
+				part({ type = pt.FILT, x = x_instr_2 + 13, y = res_lo_addr_hi.y, dcolour = 0xFF00FFFF })
 				part({ type = pt.FILT, x = x_instr_2 + 12, y = res_lo_addr_hi.y })
 				ldtc(x_instr_2 + 11, res_lo_addr_hi.y, res_lo_addr_hi.x, res_lo_addr_hi.y)
-				part({ type = pt.FILT, x = x_instr_2 + 14, y = addr_lo.y })
-				part({ type = pt.FILT, x = x_instr_2 + 13, y = addr_lo.y })
+				part({ type = pt.FILT, x = x_instr_2 + 14, y = addr_lo.y, dcolour = 0xFF00FFFF })
+				part({ type = pt.FILT, x = x_instr_2 + 13, y = addr_lo.y, dcolour = 0xFF00FFFF })
 				part({ type = pt.FILT, x = x_instr_2 + 12, y = addr_lo.y })
 				part({ type = pt.FILT, x = x_instr_2 + 11, y = addr_lo.y })
 				ldtc(x_instr_2 + 10, addr_lo.y, addr_lo.x, addr_lo.y)
-				part({ type = pt.FILT, x = x_instr_2 + 14, y = bus_lo.y })
-				part({ type = pt.FILT, x = x_instr_2 + 13, y = bus_lo.y })
+				part({ type = pt.FILT, x = x_instr_2 + 14, y = bus_lo.y, dcolour = 0xFF00FFFF })
+				part({ type = pt.FILT, x = x_instr_2 + 13, y = bus_lo.y, dcolour = 0xFF00FFFF })
 				part({ type = pt.FILT, x = x_instr_2 + 12, y = bus_lo.y })
 				ldtc(x_instr_2 + 11, bus_lo.y, bus_lo.x, bus_lo.y)
-				part({ type = pt.FILT, x = x_instr_2 + 14, y = bus_hi.y })
-				part({ type = pt.FILT, x = x_instr_2 + 13, y = bus_hi.y })
+				part({ type = pt.FILT, x = x_instr_2 + 14, y = bus_hi.y, dcolour = 0xFF00FFFF })
+				part({ type = pt.FILT, x = x_instr_2 + 13, y = bus_hi.y, dcolour = 0xFF00FFFF })
 				part({ type = pt.FILT, x = x_instr_2 + 12, y = bus_hi.y })
 				part({ type = pt.FILT, x = x_instr_2 + 11, y = bus_hi.y })
 				ldtc(x_instr_2 + 10, bus_hi.y, bus_hi.x, bus_hi.y)
 
-				local insl = part({ type = pt.INSL, x = instr_fetch_1.x - 1, y = y_core })
-				cray(x_reg_core, y_core, insl.x, insl.y, pt.INSL, 1, false, -10000000)
-				cray(x_reg_core, y_core, insl.x, insl.y, pt.INSL, 1, false,  10000000)
+				local insl   = part({ type = pt.INSL, x = instr_fetch_1.x -  1, y = y_core })
+				local buffer =      {                 x = instr_fetch_1.x - 29, y = y_core }
+				cray(x_reg_core + 2, y_core, insl  .x, insl  .y, pt.INSL, 1, false, -10000001)
+				cray(x_reg_core + 2, y_core, buffer.x, buffer.y, pt.INSL, 1, false, -10000000)
+				cray(x_reg_core + 2, y_core, buffer.x, buffer.y, pt.INSL, 1, false,  10000000)
+				cray(x_reg_core + 2, y_core, insl  .x, insl  .y, pt.INSL, 1, false,  10000001)
 			end
 
 			for ix_reader = 0, readers - 1 do
@@ -1035,18 +1032,26 @@ local function build_internal(params)
 				part({ type = pt.LDTC, x = x_reader + 1, y = y_regs + 1, tmp = 1 })
 			end
 
-			local lsns_life = part({ type = pt.FILT, x = alloc_filt(), y = y_decode, ctype = 0x10000003 })
+			local lsns_life = part({ type = pt.FILT, x = x_decode + 2, y = y_decode, ctype = 0x10000003 })
 			local bit_filt = {}
 			for ix_bit = 0, 4 do
-				bit_filt[ix_bit] = part({ type = pt.FILT, x = alloc_filt(), y = y_decode, ctype = bitx.lshift(1, ix_bit) })
+				local x_source = x_decode + 3 + ix_bit
+				if ix_bit >= 3 then
+					x_source = x_source + 30
+				end
+				bit_filt[ix_bit] = part({ type = pt.FILT, x = x_source, y = y_decode, ctype = bitx.lshift(1, ix_bit) })
 			end
 
 			local writer_info = {}
 			for ix_writer = 0, writers - 1 do
+				local x_source = x_decode +  8 + ix_writer * 3
+				if ix_writer < writers - 1 then
+					x_source = x_source - 2
+				end
 				writer_info[ix_writer] = {
-					addr    = part({ type = pt.FILT, x = alloc_filt(), y = y_decode, ctype = 0x10000005 + ix_writer }),
-					data_lo = part({ type = pt.FILT, x = alloc_filt(), y = y_decode, ctype = 0x1000FE00 + ix_writer }),
-					data_hi = part({ type = pt.FILT, x = alloc_filt(), y = y_decode, ctype = 0x1000CA00 + ix_writer }),
+					addr    = part({ type = pt.FILT, x = x_source    , y = y_decode, ctype = 0x10000005 + ix_writer }),
+					data_lo = part({ type = pt.FILT, x = x_source + 1, y = y_decode, ctype = 0x1000FE00 + ix_writer }),
+					data_hi = part({ type = pt.FILT, x = x_source + 2, y = y_decode, ctype = 0x1000CA00 + ix_writer }),
 				}
 			end
 
@@ -1271,10 +1276,10 @@ local function build_internal(params)
 	end
 	do -- bus control
 		for ix_eu = 0, eus - 1 do
-			local x_core = x_body + 93
+			local x_core = x_body + 91
 			local y_core = y_ix_eu(ix_eu) - 3
 			plot.merge_parts(x_core, y_core, parts, bus_control.get_parts(), {
-				[ 29 ] = 32,
+				[ 29 ] = 34,
 			})
 			do
 				local x_bus_lo = x_core - 28
@@ -1298,6 +1303,26 @@ local function build_internal(params)
 				dray(x_bus_lo + 3, y_core, x_bus_lo + 45, y_core, 1, pt.PSCN)
 			end
 		end
+	end
+
+	do -- tptasm anchor
+		local x_anchor = x_body - 28
+		local y_anchor = y_ix_eu(eus - 1) + 11
+		part({ x = x_anchor - 1, y = y_anchor, type = pt.FILT, ctype = machine_id })
+		part({ x = x_anchor    , y = y_anchor, type = pt.QRTZ, ctype = 0x1864A205, tmp2 = 0x201 }) -- data in ctype, dx = 1, dy = 0
+		local checksum = 0
+		local x_push = x_anchor + 1
+		local function push(value)
+			part({ x = x_push, y = y_anchor, type = pt.FILT, ctype = value })
+			checksum = checksum + value
+			x_push = x_push + 1
+		end
+		local model_name = ("R4A%02i%02i"):format(height, eus)
+		for ch in model_name:gmatch(".") do
+			push(ch:byte())
+		end
+		push(0)
+		push(checksum)
 	end
 
 	ucontext.frame(x_body - 31, y_body - 1, x_body + 134, y_body + eus * eu_spacing + height + 18)

@@ -38,13 +38,17 @@ return testbed.module(function(params)
 			local propagate_hi_cond = propagate_hi:band(spaghetti.lshift(0x3FFFFFFF, half_carry))
 			local carries_lo = spaghetti.lshiftk(generate_lo, 1)                                       :assert(0x20000000, 0x0001FFFE)
 			local carries_hi = spaghetti.lshiftk(generate_hi:bor(propagate_hi_cond), 1):bor(half_carry):assert(0x20200000, 0x0001FFFF)
-			local unsigned_carry = spaghetti.rshiftk(carries_hi, 16):bor(0x10000000):band(0x10000001)
-			local signed_carry = spaghetti.rshiftk(carries_hi, 16):bxor(spaghetti.rshiftk(carries_hi, 15)):bor(0x10000000):band(0x10000001)
+			local ltu = spaghetti.rshiftk(carries_hi, 16):bor(0x10000000):band(0x10000001)
+			local lt = spaghetti.select(
+				inputs.lhs_hi:bor(0x00010000):bxor(inputs.rhs_hi):band(0x8000):zeroable(),
+				spaghetti.rshiftk(inputs.lhs_hi, 15):bor(0x10000000):band(0x10000001),
+				ltu
+			)
 			return {
 				sum_lo = onesums_lo:bor(0x10000000):bxor(carries_lo):band(0x1000FFFF):assert(0x10000000, 0x0000FFFF),
 				sum_hi = onesums_hi:bor(0x10000000):bxor(carries_hi):band(0x1000FFFF):assert(0x10000000, 0x0000FFFF),
-				lt     = signed_carry,
-				ltu    = unsigned_carry,
+				lt     = lt,
+				ltu    = ltu,
 			}
 		end,
 		fuzz_inputs = function()
@@ -70,8 +74,11 @@ return testbed.module(function(params)
 				sum  = lhs  + rhs
 				ssum = slhs + srhs
 			end
-			local lt = ssum < -0x80000000 or ssum >= 0x80000000
 			local ltu = sum < 0 or sum >= 0x100000000
+			local lt = ltu
+			if bitx.band(bitx.bxor(inputs.lhs_hi, inputs.rhs_hi), 0x8000) ~= 0 then
+				lt = bitx.band(inputs.lhs_hi, 0x8000) ~= 0
+			end
 			sum = sum % 0x100000000
 			return {
 				sum_lo = bitx.bor(0x10000000, bitx.band(            sum     , 0xFFFF)),
