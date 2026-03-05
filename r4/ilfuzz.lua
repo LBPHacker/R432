@@ -89,10 +89,9 @@ local function run(params)
 	if false then
 		local instr_seq = {}
 		if false then
-			for i = 1, 100 do
+			for i = 1, 1000 do
 				table.insert(instr_seq, pick_random({
-					{ constant = 0x00000050, mask = 0x00000050, weight = 1 },
-					{ constant = 0x00000040, mask = 0x0000005C, weight = 5 },
+					{ constant = 0x00002020, mask = 0x00002070, weight =   100 },
 				}))
 			end
 			table.insert(instr_seq, 0x00000050)
@@ -101,8 +100,8 @@ local function run(params)
 			end
 		else
 			instr_seq = {
-				0x5FDFE273,
-				0x0B0307C3,
+				0x83BFB72D,
+				0x00000050,
 			}
 		end
 		specific_sequence = {
@@ -141,11 +140,24 @@ local function run(params)
 		core_count    = core_count,
 	})
 
+	local save_snap
+	local auto_snap = false
+	local always_compare_all = false
+	local auto_unpause = true
+	local load_snap_path -- = "r4ilfuzz.1772743024.state"
+
+	if load_snap_path then
+		auto_snap = false
+	end
+
 	local pause_asap = false
 	local frames_done = 0
 	local fail_msg
 	local function fail(msg)
 		if not fail_msg then
+			if auto_snap then
+				save_snap()
+			end
 			fail_msg = msg
 		end
 		pause_asap = true
@@ -160,6 +172,14 @@ local function run(params)
 		local y = cy - row - core_count * core_size - 18
 		return sim.partID(x, y)
 	end
+	local function get_mem(addr)
+		local id = mem_id(addr)
+		local got = bitx.band(sim.partProperty(id, "ctype"), 0xFFFFFFFE)
+		if sim.partProperty(id, "type") == pt.BRAY then
+			got = bitx.bor(got, 1)
+		end
+		return got
+	end
 	local function set_mem(addr, value)
 		emu.mem[addr] = value
 		local bray = bitx.band(value, 1) ~= 0
@@ -170,12 +190,8 @@ local function run(params)
 		sim.partProperty(id, "ctype", bitx.bor(value, 1))
 	end
 	local function compare_mem(addr, value)
-		local id = mem_id(addr)
 		local expected = emu.mem[addr]
-		local got = bitx.band(sim.partProperty(id, "ctype"), 0xFFFFFFFE)
-		if sim.partProperty(id, "type") == pt.BRAY then
-			got = bitx.bor(got, 1)
-		end
+		local got = get_mem(addr)
 		if expected ~= got then
 			fail(("mem[0x%04X] expected to be 0x%08X, is actually 0x%08X"):format(addr, expected, got))
 		end
@@ -195,11 +211,14 @@ local function run(params)
 		sim.partProperty(id_lo, "ctype", bitx.bor(0x10000000, bitx.band(            value     , 0xFFFF)))
 		sim.partProperty(id_hi, "ctype", bitx.bor(0x10000000, bitx.band(bitx.rshift(value, 16), 0xFFFF)))
 	end
-	local function compare_reg(addr, value)
+	local function get_reg(addr)
 		local id_lo, id_hi = reg_id(addr)
+		return merge32(bitx.band(sim.partProperty(id_lo, "ctype"), 0xFFFF),
+		               bitx.band(sim.partProperty(id_hi, "ctype"), 0xFFFF))
+	end
+	local function compare_reg(addr, value)
 		local expected = emu.regs[addr]
-		local got = merge32(bitx.band(sim.partProperty(id_lo, "ctype"), 0xFFFF),
-		                    bitx.band(sim.partProperty(id_hi, "ctype"), 0xFFFF))
+		local got = get_reg(addr)
 		if expected ~= got then
 			fail(("regs[0x%02X] expected to be 0x%08X, is actually 0x%08X"):format(addr, expected, got))
 		end
@@ -216,11 +235,14 @@ local function run(params)
 		sim.partProperty(pc_lo_id, "ctype", bitx.bor(0x10000000, pc_lo))
 		sim.partProperty(pc_hi_id, "ctype", bitx.bor(0x10000000, pc_hi))
 	end
-	local function compare_pc()
+	local function get_pc()
 		local pc_lo_id, pc_hi_id = pc_id()
+		return merge32(bitx.band(sim.partProperty(pc_lo_id, "ctype"), 0xFFFF),
+		               bitx.band(sim.partProperty(pc_hi_id, "ctype"), 0xFFFF))
+	end
+	local function compare_pc()
 		local expected = emu.pc
-		local got = merge32(bitx.band(sim.partProperty(pc_lo_id, "ctype"), 0xFFFF),
-		                    bitx.band(sim.partProperty(pc_hi_id, "ctype"), 0xFFFF))
+		local got = get_pc()
 		if expected ~= got then
 			fail(("pc expected to be 0x%08X, is actually 0x%08X"):format(expected, got))
 		end
@@ -232,8 +254,11 @@ local function run(params)
 		emu.started = value
 		sim.partProperty(started_id(), "ctype", bitx.bor(0x10000000, value and 0 or 1))
 	end
+	local function get_started()
+		return sim.partProperty(started_id(), "ctype") == 0x10000000
+	end
 	local function compare_started(expected)
-		local got = (sim.partProperty(started_id(), "ctype") == 0x10000000)
+		local got = get_started()
 		if expected ~= got then
 			fail(("started expected to be %s, is actually %s"):format(tostring(expected), tostring(got)))
 		end
@@ -255,6 +280,50 @@ local function run(params)
 			sim.partProperty(sim.partID(cx + 128 + ix_subeu * 8, y_head), "ctype", bitx.bor(0x10000000, rs2_lo))
 			sim.partProperty(sim.partID(cx + 130 + ix_subeu * 8, y_head), "ctype", bitx.bor(0x10000000, rs2_hi))
 		end
+	end
+
+	local snap
+	local function snap_all()
+		snap = {
+			mem = {},
+			regs = {},
+		}
+		for i = 0, (mem_row_count * row_size - 1) * 4, 4 do
+			snap.mem[i] = get_mem(i)
+		end
+		for i = 1, reg_count - 1 do
+			snap.regs[i] = get_reg(i)
+		end
+		snap.started = get_started()
+		snap.pc = get_pc()
+	end
+	function save_snap()
+		local path = global_key .. "." .. os.time() .. ".state"
+		local handle = assert(io.open(path, "wb"))
+		for i = 0, (mem_row_count * row_size - 1) * 4, 4 do
+			assert(handle:write(("0x%08X\n"):format(snap.mem[i])))
+		end
+		for i = 1, reg_count - 1 do
+			assert(handle:write(("0x%08X\n"):format(snap.regs[i])))
+		end
+		assert(handle:write(("0x%08X\n"):format(snap.started and 1 or 0)))
+		assert(handle:write(("0x%08X\n"):format(snap.pc)))
+		assert(handle:close())
+		print("saved to " .. path)
+	end
+	local function load_all(state_file)
+		local handle = assert(io.open(state_file, "rb"))
+		local pull = handle:read("*a"):gmatch("[^\n]+")
+		assert(handle:close())
+		for i = 0, (mem_row_count * row_size - 1) * 4, 4 do
+			set_mem(i, tonumber(pull()))
+		end
+		for i = 1, reg_count - 1 do
+			set_reg(i, tonumber(pull()))
+		end
+		set_started(tonumber(pull()) ~= 0)
+		set_pc(tonumber(pull()))
+		sync_head()
 	end
 
 	local until_next_randomize
@@ -281,6 +350,11 @@ local function run(params)
 			until_next_randomize = nil
 			return
 		end
+		if load_snap_path then
+			load_all(load_snap_path)
+			load_snap_path = nil
+			return
+		end
 		for i = 0, (mem_row_count * row_size - 1) * 4, 4 do
 			set_mem(i, pick_random({
 				{ constant = 0x00000010, mask = 0x00000074, weight = 10000 },
@@ -290,6 +364,9 @@ local function run(params)
 				{ constant = 0x00000048, mask = 0x00000058, weight =   100 },
 				{ constant = 0x00000044, mask = 0x0000005C, weight =   100 },
 				{ constant = 0x00000040, mask = 0x0000005C, weight =   100 },
+				{ constant = 0x00000020, mask = 0x00000070, weight =   100 },
+				{ constant = 0x00000000, mask = 0x00000074, weight =   100 },
+				{ constant = 0x00000004, mask = 0x00000074, weight =    10 },
 			}))
 		end
 		for i = 1, reg_count - 1 do
@@ -330,14 +407,21 @@ local function run(params)
 	local function aftersim()
 		frames_done = frames_done + 1
 		local frame_result = emu:frame("none")
-		for addr, value in pairs(frame_result.reg_writes) do
-			compare_reg(addr, value)
+		if always_compare_all then
+			compare_all()
 		end
-		for addr, value in pairs(frame_result.mem_writes) do
-			compare_mem(addr, value)
+		if auto_snap then
+			snap_all()
+		else
+			for addr, value in pairs(frame_result.reg_writes) do
+				compare_reg(addr, value)
+			end
+			for addr, value in pairs(frame_result.mem_writes) do
+				compare_mem(addr, value)
+			end
+			compare_started(frame_result.started)
+			compare_pc()
 		end
-		compare_started(frame_result.started)
-		compare_pc()
 		if specific_sequence then
 			compare_all()
 			if not emu.started then
@@ -367,7 +451,9 @@ local function run(params)
 	_G[global_key] = {
 		unregister = unregister,
 	}
-	sim.paused(false)
+	if auto_unpause then
+		sim.paused(false)
+	end
 end
 
 return {

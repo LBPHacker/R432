@@ -99,15 +99,20 @@ return testbed.module(function(params)
 			local memmode = spaghetti.rshiftk(instr_split_outputs.instr_lo, 12):bsub(8)
 			local addr_lo = address_outputs.sum_lo:bor(spaghetti.lshiftk(address_outputs.sum_hi:bsub(0xFF00):bor(0x1000), 16))
 			                                      :bor(spaghetti.lshiftk(control_l:bor(control_s):bor(0x10), 24))
-			local res_lo_addr_hi = unit_outputs.res_lo:bor(spaghetti.lshiftk(address_outputs.sum_hi:bsub(0xFF):bor(0x100000), 8))
-			                                          :bor(spaghetti.lshiftk(memmode:bor(0x10), 24))
+			local res_lo, res_hi = spaghetti.select(
+				instr_s:band(1):zeroable(),
+				unit_outputs.res_lo, inputs.rhs_lo,
+				unit_outputs.res_hi, inputs.rhs_hi
+			)
+			local res_lo_addr_hi = res_lo:bor(spaghetti.lshiftk(address_outputs.sum_hi:bsub(0xFF):bor(0x100000), 8))
+			                             :bor(spaghetti.lshiftk(memmode:bor(0x10), 24))
 			return {
 				pc_lo          = pc_lo,
 				pc_hi          = pc_hi,
 				shutdown       = inputs.shutdown:bor(instr_hlt:bxor(1)):bsub(inputs.start):bor(spaghetti.rshiftk(inputs.start, 1)):bor(0x10000000):band(0x10000001),
 				addr_lo        = addr_lo,
 				res_lo_addr_hi = res_lo_addr_hi,
-				res_hi         = unit_outputs.res_hi,
+				res_hi         = res_hi,
 				res_rd         = spaghetti.select(unit_outputs.output:band(1):zeroable(), regs_outputs.rd, 0x10000000),
 			}
 		end,
@@ -203,8 +208,14 @@ return testbed.module(function(params)
 				bitx.lshift(bitx.band(address_outputs.sum_hi, 0xFF), 16),
 				bitx.lshift(control, 24)
 			)
+			local res_lo = unit_outputs.res_lo
+			local res_hi = unit_outputs.res_hi
+			if instr_s then
+				res_lo = inputs.rhs_lo
+				res_hi = inputs.rhs_hi
+			end
 			local res_lo_addr_hi = bitx.bor(
-				unit_outputs.res_lo,
+				res_lo,
 				bitx.lshift(bitx.band(bitx.rshift(address_outputs.sum_hi, 8), 0xFF), 16),
 				bitx.lshift(memmode, 24)
 			)
@@ -214,7 +225,7 @@ return testbed.module(function(params)
 				shutdown       = shutdown and 0x10000001 or 0x10000000,
 				addr_lo        = bitx.bor(addr_lo       , 0x10000000),
 				res_lo_addr_hi = bitx.bor(res_lo_addr_hi, 0x10000000),
-				res_hi         = unit_outputs.res_hi,
+				res_hi         = res_hi,
 				res_rd         = bitx.band(unit_outputs.output, 1) ~= 0 and regs_outputs.rd or 0x10000000,
 			}
 		end,

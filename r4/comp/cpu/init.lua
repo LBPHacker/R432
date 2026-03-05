@@ -151,12 +151,19 @@ local function build_internal(params)
 				part({ type = pt.DRAY, x = x_bank + x * 2 + 1, y = y_bank    , tmp = 1, tmp2 = x + 4 })
 				part({ type = pt.LDTC, x = x_bank + x * 2 + 1, y = y_bank + 1, tmp = 1, life = x + 5, ctype = pt.BRAY })
 			end
+			local cap = height
+			if height < bitx.lshift(1, max_height_order) then
+				cap = cap + 1
+				part({ type = pt.LDTC, x = x_bank + height * 2    , y = y_bank    , tmp = 1, life = height + 4 })
+				part({ type = pt.HEAC, x = x_bank + height * 2 + 1, y = y_bank     })
+				part({ type = pt.LDTC, x = x_bank + height * 2 + 1, y = y_bank + 1, tmp = 1, life = height + 4, ctype = pt.BRAY })
+			end
 			head_sparks = {
 				spark({ type = pt.PSCN, x = x_head + 5, y = y_bank - 2 }),
 				spark({ type = pt.PSCN, x = x_head + 4, y = y_bank - 2 }),
 				spark({ type = pt.PSCN, x = x_head + 1, y = y_bank - 2 }),
 			}
-			part     ({ type = pt.INSL, x = x_bank + height * 2 + 1, y = y_bank - 1 })
+			part     ({ type = pt.INSL, x = x_bank + cap * 2 + 1, y = y_bank - 1 })
 			part     ({ type = pt.HEAC, x = x_head   +  5, y = y_bank - 1 })
 			apom_part({ type = pt.DRAY, x = x_head   +  4, y = y_bank - 1, tmp = 1, tmp2 = 2 }, "horiz_copy_1", "fetch_copy")
 			part     ({ type = pt.HEAC, x = x_head   +  3, y = y_bank - 1 })
@@ -681,13 +688,13 @@ local function build_internal(params)
 					{ bit = 20 },
 					{ bit = 21 },
 					{ bit = 22 },
+					{ bit =  8 },
+					{ bit =  2 },
 					{ bit =  3 },
 					{ bit =  4 },
 					{ bit =  5 },
 					{ bit =  6 },
 					{ bit =  7 },
-					{ bit =  8 },
-					{ bit =  2 },
 					{ bit =  9 },
 					{ bit = 10 },
 					{ bit = 11 },
@@ -766,14 +773,14 @@ local function build_internal(params)
 				end
 				for i = 0, width_order - 1 do
 					local piston_index = 7 + i
-					handle_bit(width_order - i - 1, piston_index, false, false)
+					handle_bit(i, piston_index, false, false)
 					local piston = pistons[piston_index].part
 					local stagger = (piston.x + 1) % 2
 					dray(piston.x, y_usage - stagger, piston.x, y_vert_bank + 1 - stagger, 2 - stagger, pt.PSCN)
 				end
 				for i = 0, max_height_order - 1 do
 					local piston_index = 14 + i
-					handle_bit(max_height_order - i, piston_index, true, false)
+					handle_bit(i + 1, piston_index, true, false)
 					local piston = pistons[piston_index].part
 					local stagger = (piston.x + 1) % 2
 					dray(piston.x, y_usage - stagger, piston.x, y_horiz_bank - stagger, 2 - stagger, pt.PSCN)

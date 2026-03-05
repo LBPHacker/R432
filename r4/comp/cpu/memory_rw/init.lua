@@ -75,9 +75,9 @@ return testbed.module(function(params)
 				rdata_hi, rdata_lo,
 				0x10000000, rdata_hi
 			)
-			local sx_8 = spaghetti.select(spaghetti.rshiftk(rdata_lo, 5):bor(0x10000000):band(memmode):band(4):zeroable(), 0x1000FF00, 0x10000000)
+			local sx_8 = spaghetti.select(spaghetti.rshiftk(rdata_lo, 5):bor(0x20000):bsub(memmode):band(4):zeroable(), 0x1000FF00, 0x10000000)
 			rdata_lo = spaghetti.select(byte:band(1):zeroable(), rdata_lo:band(0x100000FF):bor(sx_8), rdata_lo)
-			local sx_16 = spaghetti.select(spaghetti.rshiftk(rdata_lo, 13):bor(0x10000000):band(memmode):band(4):zeroable(), 0x1000FFFF, 0x10000000)
+			local sx_16 = spaghetti.select(spaghetti.rshiftk(rdata_lo, 13):bor(0x20000):bsub(memmode):band(4):zeroable(), 0x1000FFFF, 0x10000000)
 			rdata_hi = spaghetti.select(memmode:band(2):zeroable(), rdata_hi, sx_16)
 			rdata_lo, rdata_hi, wmask_lo, wmask_hi = spaghetti.select(
 				inputs.bus_lo:band(0x10000):zeroable(),
@@ -131,14 +131,14 @@ return testbed.module(function(params)
 			local wait     = bitx.band(inputs.bus_lo, 0x20000) ~= 0
 			local write    = bitx.band(inputs.addr_lo, 0x02000000) ~= 0
 			local read     = bitx.band(inputs.addr_lo, 0x01000000) ~= 0
-			local sx       = bitx.band(inputs.res_lo_addr_hi, 0x04000000) ~= 0
+			local unsigned = bitx.band(inputs.res_lo_addr_hi, 0x04000000) ~= 0
 			local word     = bitx.band(inputs.res_lo_addr_hi, 0x02000000) ~= 0
 			local halfword = bitx.band(inputs.res_lo_addr_hi, 0x01000000) ~= 0
 			local core_in  = bitx.bor(bitx.band(inputs.res_lo_addr_hi, 0xFFFF), bitx.lshift(bitx.band(inputs.res_hi, 0xFFFF), 16))
 			local bus_in   = bitx.bor(bitx.band(inputs.bus_lo, 0xFFFF), bitx.lshift(bitx.band(inputs.bus_hi, 0xFFFF), 16))
 			local mem_in   = bitx.bor(bitx.band(inputs.mem_rest, 0xFFFFFFFE), bitx.band(inputs.mem_lsb, 1))
 			local core_out, write_data, write_mask
-			local shiftf = sx and bitx.arshift or bitx.rshift
+			local shiftf = unsigned and bitx.rshift or bitx.arshift
 			if word then
 				core_out = mem_in
 				write_data = core_in
