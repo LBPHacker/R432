@@ -144,8 +144,8 @@ function emu_context_i:eu_(ix_eu)
 	local function defer()
 		defer_shift = defer_shift + 1
 	end
+	local bus_access_done = false
 	for ix_subeu = 0, sub_eu_count - 1 do repeat
-		local bus_access_done = false
 		if not self.started then
 			defer()
 			break
@@ -294,6 +294,7 @@ function emu_context_i:eu_(ix_eu)
 				local _
 				_, _, wait = self.bus_access_(ix_eu, false, false, false, 4, 0x00000000, 0x00000000)
 			end
+			bus_access_done = true
 			if wait then
 				defer()
 				break
@@ -305,6 +306,11 @@ function emu_context_i:eu_(ix_eu)
 		end
 		self.pc = next_pc
 	until true end
+	if not bus_access_done then
+		if self.bus_access_ then
+			self.bus_access_(ix_eu, false, false, false, 4, 0x00000000, 0x00000000)
+		end
+	end
 end
 
 emu_context_i.frame = misc.user_wrap(function(self, start_action)

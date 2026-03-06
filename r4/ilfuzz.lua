@@ -113,6 +113,27 @@ local function run(params)
 	local core_count = 5
 	local machine_id = 0xDEAD
 
+	local cx = plot_x - 18
+	local cy = plot_y + core_count * core_size + mem_row_count + 27
+	local extra_parts = {}
+	do
+		local pt = plot.pt
+		local ucontext = plot.common_structures(extra_parts)
+		local part = ucontext.part
+		local ldtc = ucontext.ldtc
+
+		for ix_eu = 0, core_count - 1 do
+			local x_base = cx - plot_x + 164
+			local y_base = cy - plot_y + (ix_eu - core_count) * core_size - 2
+			part({ type = pt.FILT, x = x_base, y = y_base + 3 })
+			part({ type = pt.FILT, x = x_base, y = y_base + 4 })
+			local source_0 = part({ type = pt.FILT, x = x_base + 3, y = y_base + 3, ctype = 0x10000000 })
+			local source_1 = part({ type = pt.FILT, x = x_base + 3, y = y_base + 4, ctype = 0x10000000 })
+			ldtc(x_base + 1, y_base + 3, source_0.x, source_0.y)
+			ldtc(x_base + 1, y_base + 4, source_1.x, source_1.y)
+		end
+	end
+
 	r4plot.run({
 		x             = plot_x,
 		y             = plot_y,
@@ -120,31 +141,19 @@ local function run(params)
 		mem_row_count = mem_row_count,
 		core_count    = core_count,
 		machine_id    = machine_id,
+		extra_parts   = extra_parts,
 		-- debug_stacks = {
 		-- 	x = 40,
 		-- 	y = 40,
 		-- },
 	})
-	local cx, cy
-	do
-		local mem_row_count_d, core_count_d, machine_id_d
-		cx, cy, mem_row_count_d, core_count_d, machine_id_d = detect()
-		assert(mem_row_count == mem_row_count_d)
-		assert(core_count == core_count_d)
-		assert(machine_id == machine_id_d)
-	end
 	local y_head = cy - 4 - core_count * core_size
-
-	local emu = emulator.make_context({
-		mem_row_count = mem_row_count,
-		core_count    = core_count,
-	})
 
 	local save_snap
 	local auto_snap = false
 	local always_compare_all = true
 	local auto_unpause = true
-	local load_snap_path -- = "r4ilfuzz.1772743024.state"
+	local load_snap_path -- = "r4ilfuzz.1772793778.state"
 
 	if load_snap_path then
 		auto_snap = false
@@ -162,6 +171,109 @@ local function run(params)
 		end
 		pause_asap = true
 	end
+
+	local function bus_ids(ix_eu)
+		local x_base = cx + 162
+		local y_base = cy - 2 + (ix_eu - core_count) * core_size
+		local out_0_id = sim.partID(x_base    , y_base    )
+		local out_1_id = sim.partID(x_base + 1, y_base + 1)
+		local out_2_id = sim.partID(x_base + 1, y_base + 2)
+		local in_0_id  = sim.partID(x_base + 5, y_base + 3)
+		local in_1_id  = sim.partID(x_base + 5, y_base + 4)
+		return out_0_id, out_1_id, out_2_id, in_0_id, in_1_id
+	end
+
+	local bus_inputs = {}
+	local bus_outputs = {}
+	local function compare_bus_outputs()
+		for ix_eu = 0, core_count - 1 do
+			local store       = bus_outputs[ix_eu].store
+			local load        = bus_outputs[ix_eu].load
+			local sign_extend = bus_outputs[ix_eu].sign_extend
+			local size        = bus_outputs[ix_eu].size
+			local address     = bus_outputs[ix_eu].address
+			local value       = bus_outputs[ix_eu].value
+			local out_0_id, out_1_id, out_2_id = bus_ids(ix_eu)
+			local out_0 = sim.partProperty(out_0_id, "ctype")
+			local out_1 = sim.partProperty(out_1_id, "ctype")
+			local out_2 = sim.partProperty(out_2_id, "ctype")
+			local function check(what, mask, expected, got)
+				local expected = bitx.band(expected, mask)
+				local got      = bitx.band(got     , mask)
+				if expected ~= got then
+					fail(("bus[%i].%s & 0x%08X expected to be 0x%08X, is actually 0x%08X"):format(ix_eu, what, mask, expected, got))
+				end
+			end
+			check("out_0", 0x01000000, load  and 0x01000000 or 0x00000000, out_0)
+			check("out_0", 0x02000000, store and 0x02000000 or 0x00000000, out_0)
+			if load or store then
+				check("out_0", 0x00FFFFFF, bitx.band(address, 0xFFFFFF), out_0)
+				check("out_1", 0x00FF0000, bitx.band(bitx.rshift(address, 8), 0xFF0000), out_1)
+				if size == 4 then
+					check("out_1", 0x02000000, 0x02000000, out_1)
+				else
+					check("out_1", 0x01000000, bitx.lshift(size - 1, 24), out_1)
+				end
+			end
+			if load then
+				check("out_1", 0x04000000, sign_extend and 0x00000000 or 0x04000000, out_1)
+			end
+			if store then
+				local value_lo, value_hi = split32(value)
+				check("out_1", 0x0000FFFF, value_lo, out_1)
+				check("out_2", 0x0000FFFF, value_hi, out_2)
+			end
+		end
+	end
+	local function sync_bus_inputs()
+		for ix_eu = 0, core_count - 1 do
+			local value_lo, value_hi = split32(bus_inputs[ix_eu].value)
+			value_lo = bitx.bor(value_lo, bus_inputs[ix_eu].handled and 0x10000 or 0)
+			value_lo = bitx.bor(value_lo, bus_inputs[ix_eu].wait    and 0x20000 or 0)
+			local _, _, _, in_0_id, in_1_id = bus_ids(ix_eu)
+			sim.partProperty(in_0_id, "ctype", bitx.bor(value_lo, 0x10000000))
+			sim.partProperty(in_1_id, "ctype", bitx.bor(value_hi, 0x10000000))
+		end
+	end
+	local function empty_bus_inputs()
+		for ix_eu = 0, core_count - 1 do
+			bus_inputs[ix_eu] = {
+				value   = 0x00000000,
+				handled = false,
+				wait    = false,
+			}
+		end
+		sync_bus_inputs()
+	end
+	local function random_bus_inputs()
+		-- empty_bus_inputs()
+		for ix_eu = 0, core_count - 1 do
+			bus_inputs[ix_eu] = {
+				value   = random32(),
+				handled = math.random(0, 1) == 0,
+				wait    = math.random(0, 1) == 0,
+			}
+		end
+		sync_bus_inputs()
+	end
+	local function bus_access(ix_eu, store, load, sign_extend, size, address, value)
+		bus_outputs[ix_eu] = {
+			store       = store,
+			load        = load,
+			sign_extend = sign_extend,
+			size        = size,
+			address     = address,
+			value       = value,
+		}
+		return bus_inputs[ix_eu].value, bus_inputs[ix_eu].handled, bus_inputs[ix_eu].wait
+	end
+	empty_bus_inputs()
+
+	local emu = emulator.make_context({
+		mem_row_count = mem_row_count,
+		core_count    = core_count,
+		bus_access    = bus_access,
+	})
 
 	local function mem_id(addr)
 		assert(bitx.band(addr, 3) == 0)
@@ -282,6 +394,29 @@ local function run(params)
 		end
 	end
 
+	local next_emu_start_action = "none"
+	local function start_action_ctype(start_action)
+		local ctype = 0x10000000
+		if start_action == "start" then
+			ctype = 0x10000001
+		elseif start_action == "stop" then
+			ctype = 0x10000002
+		end
+		return ctype
+	end
+	local function start_action_str(ctype)
+		if ctype == 0x10000001 then
+			return "start"
+		elseif ctype == 0x10000002 then
+			return "stop"
+		end
+		return "none"
+	end
+	local function set_next_start_action(start_action)
+		sim.partProperty(sim.partID(cx + 112, cy - 18), "ctype", start_action_ctype(start_action))
+		next_emu_start_action = start_action
+	end
+
 	local snap
 	local function snap_all()
 		snap = {
@@ -296,10 +431,17 @@ local function run(params)
 		end
 		snap.started = get_started()
 		snap.pc = get_pc()
+		snap.next_emu_start_action = next_emu_start_action
+		snap.bus_inputs = {}
+		for ix_eu = 0, core_count - 1 do
+			snap.bus_inputs[ix_eu] = bus_inputs[ix_eu]
+		end
 	end
 	function save_snap()
 		local path = global_key .. "." .. os.time() .. ".state"
 		local handle = assert(io.open(path, "wb"))
+		assert(handle:write(("0x%08X\n"):format(mem_row_count)))
+		assert(handle:write(("0x%08X\n"):format(core_count)))
 		for i = 0, (mem_row_count * row_size - 1) * 4, 4 do
 			assert(handle:write(("0x%08X\n"):format(snap.mem[i])))
 		end
@@ -308,6 +450,12 @@ local function run(params)
 		end
 		assert(handle:write(("0x%08X\n"):format(snap.started and 1 or 0)))
 		assert(handle:write(("0x%08X\n"):format(snap.pc)))
+		assert(handle:write(("0x%08X\n"):format(start_action_ctype(snap.next_emu_start_action))))
+		for ix_eu = 0, core_count - 1 do
+			assert(handle:write(("0x%08X\n"):format(snap.bus_inputs[ix_eu].value)))
+			assert(handle:write(("0x%08X\n"):format(snap.bus_inputs[ix_eu].handled and 1 or 0)))
+			assert(handle:write(("0x%08X\n"):format(snap.bus_inputs[ix_eu].wait    and 1 or 0)))
+		end
 		assert(handle:close())
 		print("saved to " .. path)
 	end
@@ -315,6 +463,10 @@ local function run(params)
 		local handle = assert(io.open(state_file, "rb"))
 		local pull = handle:read("*a"):gmatch("[^\n]+")
 		assert(handle:close())
+		local mem_row_count_f = tonumber(pull())
+		local core_count_f = tonumber(pull())
+		assert(mem_row_count_f == mem_row_count)
+		assert(core_count_f == core_count)
 		for i = 0, (mem_row_count * row_size - 1) * 4, 4 do
 			set_mem(i, tonumber(pull()))
 		end
@@ -324,6 +476,13 @@ local function run(params)
 		set_started(tonumber(pull()) ~= 0)
 		set_pc(tonumber(pull()))
 		sync_head()
+		set_next_start_action(start_action_str(tonumber(pull())))
+		for ix_eu = 0, core_count - 1 do
+			bus_inputs[ix_eu].value   = tonumber(pull())
+			bus_inputs[ix_eu].handled = tonumber(pull()) ~= 0
+			bus_inputs[ix_eu].wait    = tonumber(pull()) ~= 0
+		end
+		sync_bus_inputs()
 	end
 
 	local until_next_randomize
@@ -377,6 +536,7 @@ local function run(params)
 		set_pc(random32())
 		set_started(math.random(1, 10) == 1)
 		sync_head()
+		random_bus_inputs()
 		until_next_randomize = math.random(50, 200)
 	end
 	randomize()
@@ -406,27 +566,14 @@ local function run(params)
 		compare_pc()
 	end
 
-	local next_emu_start_action = "none"
-	local function set_next_start_action(start_action)
-		local ctype = 0x10000000
-		if start_action == "start" then
-			ctype = 0x10000001
-		elseif start_action == "stop" then
-			ctype = 0x10000002
-		end
-		sim.partProperty(sim.partID(cx + 112, cy - 18), "ctype", ctype)
-		next_emu_start_action = start_action
-	end
-
 	local function aftersim()
 		frames_done = frames_done + 1
 		local frame_result = emu:frame(next_emu_start_action)
+		random_bus_inputs()
 		next_emu_start_action = "none"
+		compare_bus_outputs()
 		if always_compare_all then
 			compare_all()
-		end
-		if auto_snap then
-			snap_all()
 		else
 			for addr, value in pairs(frame_result.reg_writes) do
 				compare_reg(addr, value)
@@ -461,6 +608,9 @@ local function run(params)
 				set_next_start_action("start")
 				until_next_restart = nil
 			end
+		end
+		if auto_snap then
+			snap_all()
 		end
 	end
 

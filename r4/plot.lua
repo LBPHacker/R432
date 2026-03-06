@@ -51,6 +51,9 @@ local function run(params)
 			part.debug_dcolour = nil
 		end
 	end
+	if params.extra_parts then
+		plot.merge_parts(0, 0, parts, params.extra_parts)
+	end
 	plot.create_parts(x, y, parts)
 	if params.clear_sim then
 		sim.paused(true)
