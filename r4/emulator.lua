@@ -2,6 +2,7 @@ local check  = require("spaghetti.check")
 local strict = require("spaghetti.strict")
 local bitx   = require("spaghetti.bitx")
 local misc   = require("spaghetti.misc")
+local common = require("r4.common")
 
 local emu_context_m, emu_context_i = strict.make_mt("r4.emu_context")
 
@@ -93,6 +94,33 @@ local function czero_op(op, lhs, rhs)
 	return rhs == 0 and 0 or lhs
 end
 
+local function mul_op(op, lhs, rhs)
+	local lhs_lo, lhs_hi = common.split32(lhs)
+	local rhs_lo, rhs_hi = common.split32(rhs)
+	local lo32       = bitx.band(op, 0x3) == 0x0
+	local lhs_signed = bitx.band(op, 0x3) ~= 0x3
+	local rhs_signed = bitx.band(op, 0x2) == 0x0
+	if lhs_signed and lhs_hi >= 0x8000 then
+		lhs_hi = lhs_hi - 0x10000
+	end
+	if rhs_signed and rhs_hi >= 0x8000 then
+		rhs_hi = rhs_hi - 0x10000
+	end
+	local r00_lo, r00_hi = common.split32(lhs_lo * rhs_lo % 0x100000000)
+	local r01_lo, r01_hi = common.split32(lhs_lo * rhs_hi % 0x100000000)
+	local r10_lo, r10_hi = common.split32(lhs_hi * rhs_lo % 0x100000000)
+	local r11_lo, r11_hi = common.split32(lhs_hi * rhs_hi % 0x100000000)
+	local r10_sx = (lhs_signed and r10_hi >= 0x8000) and 0xFFFF or 0x0000
+	local r01_sx = (rhs_signed and r01_hi >= 0x8000) and 0xFFFF or 0x0000
+	local res_0 = r00_lo
+	local res_1, carry_2 = common.split32(r00_hi + r01_lo + r10_lo)
+	local res_2, carry_3 = common.split32(r01_hi + r10_hi + r11_lo + carry_2)
+	local res_3 = (r11_hi + carry_3 + r01_sx + r10_sx) % 0x10000
+	local res_lo32 = common.merge32(res_0, res_1)
+	local res_hi32 = common.merge32(res_2, res_3)
+	return lo32 and res_lo32 or res_hi32, res_lo32
+end
+
 local function cond_op(op, lhs, rhs)
 	local taken
 	local op_high = bitx.band(bitx.rshift(op, 1), 3)
@@ -148,16 +176,31 @@ end
 function emu_context_i:eu_(ix_eu)
 	local instrs = self:fetch_()
 	local defer_shift = 0
-	local function defer()
+	local mulstate_instr, mulstate_value = self.mulstate_instr, self.mulstate_value
+	local function fuse_mul(instr)
+		local diff = bitx.bxor(instr, mulstate_instr)
+		local same = bitx.band(diff, 0x3FFF8074) == 0
+		local lo32 = bitx.band(instr, 0x00003000) == 0x00000000
+		local rs1_rd_diff = bitx.band(bitx.rshift(mulstate_instr, 15), 0x1F) ~= bitx.band(bitx.rshift(mulstate_instr, 7), 0x1F)
+		local rs2_rd_diff = bitx.band(bitx.rshift(mulstate_instr, 20), 0x1F) ~= bitx.band(bitx.rshift(mulstate_instr, 7), 0x1F)
+		local can_fuse = same and lo32 and rs1_rd_diff and rs2_rd_diff
+		if can_fuse then
+			return mulstate_value
+		end
+	end
+	local poison_mulstate = self.core_types_[ix_eu] ~= "m"
+	local function defer(set_poison_mulstate)
 		defer_shift = defer_shift + 1
+		poison_mulstate = poison_mulstate or set_poison_mulstate
 	end
 	local bus_access_done = false
+	local mul_failed = false
 	for ix_subeu = 0, sub_eu_count - 1 do repeat
+		local last_subeu = ix_subeu == sub_eu_count - 1
 		if not self.started then
-			defer()
+			defer(last_subeu)
 			break
 		end
-		local last_subeu = ix_subeu == sub_eu_count - 1
 		local instr = instrs[ix_subeu - defer_shift]
 		local rd    = bitx.band(bitx.rshift(instr,  7), 0x1F)
 		local rs1   = bitx.band(bitx.rshift(instr, 15), 0x1F)
@@ -180,6 +223,32 @@ function emu_context_i:eu_(ix_eu)
 					self.regs[rs1],
 					self.regs[rs2]
 				)
+			elseif bitx.band(instr, 0x02000000) ~= 0 then
+				local fused_mul = false
+				if ix_subeu == 0 then
+					local lo32 = fuse_mul(instr)
+					if lo32 then
+						rd_value = lo32
+						fused_mul = true
+					end
+				end
+				if not fused_mul then
+					if not last_subeu then
+						defer(false) -- not the last sub-EU
+						break
+					end
+					self.mulstate_instr = bitx.bor(instr, 8)
+					self.mulstate_value = 0x00000000
+					if self.core_types_[ix_eu] == "m" then
+						rd_value, self.mulstate_value = mul_op(
+							bitx.band(bitx.rshift(instr, 12), 7),
+							self.regs[rs1],
+							self.regs[rs2]
+						)
+					else
+						mul_failed = true
+					end
+				end
 			else
 				rd_value = alu_op(
 					bitx.band(bitx.rshift(instr, 12), 7),
@@ -189,16 +258,10 @@ function emu_context_i:eu_(ix_eu)
 					bitx.band(instr, 0x40000000) ~= 0,
 					bitx.band(instr, 0x40000000) ~= 0
 				)
-				if bitx.band(instr, 0x02000000) ~= 0 then -- TODO: implement mul
-					if not last_subeu then
-						defer()
-						break
-					end
-				end
 			end
 		elseif bitx.band(instr, 0x00000050) == 0x00000050 then
 			if not last_subeu then
-				defer()
+				defer(false) -- not the last sub-EU
 				break
 			end
 			self.started = false
@@ -207,14 +270,14 @@ function emu_context_i:eu_(ix_eu)
 			rd_value = clamp32(imm_u(instr) + (lui and 0 or self.pc))
 		elseif bitx.band(instr, 0x00000058) == 0x00000048 then
 			if not last_subeu then
-				defer()
+				defer(false) -- not the last sub-EU
 				break
 			end
 			rd_value = next_pc
 			next_pc = clamp32(self.pc + imm_j(instr))
 		elseif bitx.band(instr, 0x0000005C) == 0x00000044 then
 			if not last_subeu then
-				defer()
+				defer(false) -- not the last sub-EU
 				break
 			end
 			rd_value = next_pc
@@ -226,14 +289,14 @@ function emu_context_i:eu_(ix_eu)
 				self.regs[rs2]
 			) then
 				if not last_subeu then
-					defer()
+					defer(false) -- not the last sub-EU
 					break
 				end
 				next_pc = clamp32(self.pc + imm_b(instr))
 			end
 		elseif bitx.band(instr, 0x00000070) == 0x00000020 then
 			if not last_subeu then
-				defer()
+				defer(false) -- not the last sub-EU
 				break
 			end
 			local address = clamp32(self.regs[rs1] + imm_s(instr))
@@ -246,7 +309,7 @@ function emu_context_i:eu_(ix_eu)
 			end
 			bus_access_done = true
 			if wait then
-				defer()
+				defer(false) -- last sub-EU, but this is a memory access
 				break
 			end
 			if not handled then
@@ -265,7 +328,7 @@ function emu_context_i:eu_(ix_eu)
 			end
 		elseif bitx.band(instr, 0x00000074) == 0x00000000 then
 			if not last_subeu then
-				defer()
+				defer(false) -- not the last sub-EU
 				break
 			end
 			local address = clamp32(self.regs[rs1] + imm_i(instr))
@@ -278,7 +341,7 @@ function emu_context_i:eu_(ix_eu)
 			end
 			bus_access_done = true
 			if wait then
-				defer()
+				defer(false) -- last sub-EU, but this is a memory access
 				break
 			end
 			if not handled then
@@ -299,7 +362,7 @@ function emu_context_i:eu_(ix_eu)
 		else
 			-- assert(bitx.band(instr, 0x00000074) == 0x00000004)
 			if not last_subeu then
-				defer()
+				defer(false) -- not the last sub-EU
 				break
 			end
 		end
@@ -311,9 +374,18 @@ function emu_context_i:eu_(ix_eu)
 			end
 			bus_access_done = true
 			if wait then
-				defer()
+				-- quirk: requesting a wait cycle when the last sub-EU is executing a mul is UB
+				--        because wait cycles are only valid in response to memory accesses. the
+				--        quirk here is that this produces a valid mulstate, so a subsequent mul
+				--        (indeed, possibly one being delayed to the next sub-EU by the wait cycle)
+				--        may act on it.
+				defer(false) -- last sub-EU *and* this is not a memory access, and yet the mulstate is not poisoned!
 				break
 			end
+		end
+		if mul_failed then
+			defer(false) -- EU doesn't support mul, mulstate already poisoned
+			break
 		end
 		if rd_value and rd ~= 0 then
 			self.regs[rd] = rd_value
@@ -325,6 +397,9 @@ function emu_context_i:eu_(ix_eu)
 		if self.bus_access_ then
 			self.bus_access_(ix_eu, false, false, false, 4, 0x00000000, 0x00000000)
 		end
+	end
+	if poison_mulstate then
+		self.mulstate_instr = bitx.bor(self.mulstate_instr, 4)
 	end
 end
 
@@ -359,12 +434,19 @@ local mem_m = {
 }
 local make_context = misc.user_wrap(function(params)
 	check.integer_range("params.mem_row_count", params.mem_row_count, 1, 64)
-	check.integer_range("params.core_count", params.core_count, 1, 50)
+	check.string("params.core_types", params.core_types)
+	check.integer_range("#params.core_types", #params.core_types, 1, 50)
+	for ix_core = 1, #params.core_types do
+		local core_type = params.core_types:sub(ix_core, ix_core)
+		check.one_of(("params.core_types character %i"):format(ix_core), core_type, { "i", "m" })
+	end
 	if params.bus_access ~= nil then
 		-- value, handled, wait = bus_access(ix_eu, store, load, sign_extend, size, address, value)
 		check.func("params.bus_access", params.bus_access)
 	end
 	local pc = 0x00000000
+	local mulstate_instr = 0x0000000F
+	local mulstate_value = 0x00000000
 	local mem = {}
 	local mem_size = params.mem_row_count * 128
 	for i = 0, (mem_size - 1) * 4, 4 do
@@ -375,14 +457,21 @@ local make_context = misc.user_wrap(function(params)
 	for i = 0, reg_count - 1 do
 		regs[i] = 0x00000000
 	end
+	local core_types = {}
+	for ix_eu = 0, #params.core_types - 1 do
+		core_types[ix_eu] = params.core_types:sub(ix_eu + 1, ix_eu + 1)
+	end
 	return setmetatable({
 		started        = false,
-		pc            = pc,
+		pc             = pc,
+		mulstate_instr = mulstate_instr,
+		mulstate_value = mulstate_value,
 		mem            = mem,
 		regs           = regs,
 		mem_row_count_ = params.mem_row_count,
 		bus_access_    = params.bus_access or false,
-		core_count_    = params.core_count,
+		core_count_    = #params.core_types,
+		core_types_    = core_types,
 		reg_writes_    = {},
 		mem_writes_    = {},
 	}, emu_context_m)

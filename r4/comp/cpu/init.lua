@@ -7,17 +7,36 @@ local memory_rw   = require("r4.comp.cpu.memory_rw.generated")
 local reg_r       = require("r4.comp.cpu.reg_r.generated")
 local head        = require("r4.comp.cpu.core.generated_head")
 local tail        = require("r4.comp.cpu.core.generated_tail")
+local multiplier  = require("r4.comp.cpu.core.alu.generated_multiplier")
 
 local audited_pairs = pairs
 
 local function build_internal(params)
 	check.integer_range("params.mem_row_count", params.mem_row_count, 1, 64)
-	check.integer_range("params.core_count", params.core_count, 1, 50)
+	local eus, core_types_str
+	if type(params.core_types) == "number" then
+		check.integer_range("params.core_types", params.core_types, 1, 50)
+		eus = params.core_types
+		core_types_str = ("m"):rep(params.core_types)
+	else
+		check.string("params.core_types", params.core_types)
+		check.integer_range("#params.core_types", #params.core_types, 1, 50)
+		for ix_core = 1, #params.core_types do
+			local core_type = params.core_types:sub(ix_core, ix_core)
+			check.one_of(("params.core_types character %i"):format(ix_core), core_type, { "i", "m" })
+		end
+		eus = #params.core_types
+		core_types_str = params.core_types
+	end
 	if params.machine_id ~= nil then
 		check.integer("params.machine_id", params.machine_id)
 	end
 	if params.start_pc ~= nil then
 		check.integer_range("params.start_pc", params.start_pc, 0x00000000, 0xFFFFFFFF)
+	end
+	local core_types = {}
+	for ix_eu = 0, eus - 1 do
+		core_types[ix_eu] = core_types_str:sub(ix_eu + 1, ix_eu + 1)
 	end
 
 	local parts = {}
@@ -37,7 +56,6 @@ local function build_internal(params)
 
 	local machine_id       = params.machine_id or 0x1337
 	local eu_spacing       = 16
-	local eus              = params.core_count
 	local height           = params.mem_row_count
 	local width_order      = 7
 	local max_height_order = 6
@@ -589,29 +607,8 @@ local function build_internal(params)
 				[ 39 ] = 56,
 				[ 40 ] = 57,
 				[ 41 ] = 58,
-				[ 42 ] = 59,
+				[ 42 ] = 62,
 			})
-			-- for _, info in ipairs({
-			-- 	{ name = "control", index =  1, initial = 0x10000000 },
-			-- 	{ name = "core_lo", index =  3, initial = 0x10000000 },
-			-- 	{ name = "core_hi", index =  5, initial = 0x10000000 },
-			-- 	{ name = "addr_lo", index = 11, initial = 0x10000000 },
-			-- }) do
-			-- 	part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage - 1 })
-			-- 	local source = part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage - 4, ctype = info.initial })
-			-- 	if info.name == "addr_lo" then
-			-- 		source.y = address_source.y
-			-- 		ldtc(source.x - 1, source.y, address_source.x, address_source.y)
-			-- 	end
-			-- 	ldtc(x_core + info.index + 2, y_usage - 2, source.x, source.y)
-			-- end
-			-- for _, info in ipairs({
-			-- 	{ name = "core_lo" , index = 1 },
-			-- 	{ name = "core_hi" , index = 3 },
-			-- }) do
-			-- 	part({ type = pt.FILT, x = x_core + info.index + 2, y = y_usage + 3 })
-			-- 	ldtc(x_core + info.index + 2, y_usage + 2, x_core + info.index + 2, y_usage)
-			-- end
 
 			do
 				local x_apom = x_apom_read
@@ -629,12 +626,22 @@ local function build_internal(params)
 				end
 				cray(x_ldtc_1, y_finish, x_ldtc_1, y_usage - 1, pt.SPRK, 1, pt.PSCN)
 				cray(x_ldtc_2, y_finish, x_ldtc_2, y_usage - 1, pt.SPRK, 1, pt.PSCN)
-				cray(x_ldtc_2 + 2, y_finish, x_apom + 2, y_finish, pt.CRMC, 2, pt.PSCN)
 
-				cray(x_apom + 1, y_finish + 2, source.x    , y_finish, pt.CRMC, 1, pt.PSCN)
-				cray(x_apom + 1, y_finish + 2, source.x    , source.y, pt.CRMC, 1, pt.PSCN)
-				cray(x_apom + 2, y_finish + 3, source.x + 1, y_finish, pt.CRMC, 1, pt.PSCN)
-				cray(x_apom + 2, y_finish + 3, source.x + 1, source.y, pt.CRMC, 1, pt.PSCN)
+				if ix_eu == eus - 1 then
+					local target = { x = x_apom + 1, y = y_finish }
+					cray(x_ldtc_2 + 2, y_finish, target.x + 1, target.y, pt.CRMC, 2, pt.PSCN)
+					cray(x_apom + 1, y_finish + 2, target.x    , target.y, pt.CRMC, 1, pt.PSCN)
+					cray(x_apom + 1, y_finish + 2, source.x    , source.y, pt.CRMC, 1, pt.PSCN)
+					cray(x_apom + 2, y_finish + 3, target.x + 1, target.y, pt.CRMC, 1, pt.PSCN)
+					cray(x_apom + 2, y_finish + 3, source.x + 1, source.y, pt.CRMC, 1, pt.PSCN)
+				else
+					local target = { x = x_apom + 9, y = y_finish }
+					cray(x_ldtc_2 + 2, y_finish, target.x + 1, target.y, pt.CRMC, 2, pt.PSCN)
+					cray(x_apom + 15, y_finish + 6, target.x    , target.y, pt.CRMC, 1, pt.PSCN)
+					cray(x_apom + 15, y_finish + 6, source.x    , source.y, pt.CRMC, 1, pt.PSCN)
+					cray(x_apom + 16, y_finish + 6, target.x + 1, target.y, pt.CRMC, 1, pt.PSCN)
+					cray(x_apom + 16, y_finish + 6, source.x + 1, source.y, pt.CRMC, 1, pt.PSCN)
+				end
 			end
 			do
 				dray(x_write + 1, y_usage, x_write +  6, y_usage, 1, pt.INST)
@@ -817,6 +824,7 @@ local function build_internal(params)
 	end
 
 	local set_pc_lo, set_pc_hi, get_shutdown
+	local protected_head_ldtcs = {}
 	do -- register access
 		local regs        = 32
 		local writers     = 4
@@ -930,37 +938,80 @@ local function build_internal(params)
 				part({ type = pt.LDTC, x = instr_fetch_2_3.x - 4, y = instr_fetch_2_3.y + 4, life = 3 })
 				part({ type = pt.LDTC, x = instr_fetch_2_4.x - 4, y = instr_fetch_2_4.y + 4, life = 3 })
 
+				part({ type = pt.LDTC, x = x_instr_2 -  9, y = y_core + 3, life = 10 })
+				part({ type = pt.LDTC, x = x_instr_2 - 13, y = y_core + 3, life = 10 })
 				part({ type = pt.LDTC, x = x_instr_2 - 23, y = y_core + 3, life = 8 })
 				part({ type = pt.LDTC, x = x_instr_2 - 21, y = y_core + 3, life = 8 })
-				part({ type = pt.LDTC, x = x_instr_2 - 19, y = y_core + 3, life = 12 })
+				part({ type = pt.LDTC, x = x_instr_2 -  7, y = y_core - 9, tmp = 1 })
+				part({ type = pt.FILT, x = x_instr_2 -  8, y = y_core - 8 })
+				part({ type = pt.LDTC, x = x_instr_2 - 19, y = y_core + 3, life = 10 })
 				if ix_eu < eus - 1 then
 					part({ type = pt.FILT, x = x_instr_2 - 21, y = y_core + 5 })
 				end
-				part({ type = pt.LDTC, x = x_instr_2 - 20, y = y_core - 11 })
-				part({ type = pt.LDTC, x = x_instr_2 - 19, y = y_core - 11 })
-				part({ type = pt.LDTC, x = x_instr_2 - 18, y = y_core - 11 })
-				part({ type = pt.LDTC, x = x_instr_2 - 37, y = y_core -  9, tmp = 1 })
-				part({ type = pt.FILT, x = x_instr_2 - 37, y = y_core -  8, ctype = 0x10000000 })
-				part({ type = pt.LDTC, x = x_instr_2 - 17, y = y_core - 11 })
-				part({ type = pt.LDTC, x = x_instr_2 - 16, y = y_core - 11 })
-				part({ type = pt.LDTC, x = x_instr_2 -  1 + 4, y = y_core - 11, tmp = 1 })
-				part({ type = pt.LDTC, x = x_instr_2 -  2 + 4, y = y_core - 11, tmp = 1 })
+				part             ({ type = pt.LDTC, x = x_instr_2 - 20, y = y_core - 11 })
+				local ph_1 = part({ type = pt.LDTC, x = x_instr_2 - 19, y = y_core - 11 })
+				part             ({ type = pt.LDTC, x = x_instr_2 - 18, y = y_core - 11 })
+				part             ({ type = pt.LDTC, x = x_instr_2 - 37, y = y_core -  9, tmp = 1 })
+				part             ({ type = pt.FILT, x = x_instr_2 - 37, y = y_core -  8, ctype = 0x10000000 })
+				local ph_2 = part({ type = pt.LDTC, x = x_instr_2 - 17, y = y_core - 11 })
+				part             ({ type = pt.LDTC, x = x_instr_2 - 16, y = y_core - 11 })
+				local ph_3 = part({ type = pt.LDTC, x = x_instr_2 +  3, y = y_core - 11, tmp = 1 })
+				part             ({ type = pt.LDTC, x = x_instr_2 +  2, y = y_core - 11, tmp = 1 })
 				if ix_eu == 0 then
-					part({ type = pt.INSL, x = x_instr_2  - 1 + 4, y = y_core - 11 })
-					part({ type = pt.INSL, x = x_instr_2 - 17, y = y_core - 11 })
-					part({ type = pt.INSL, x = x_instr_2 - 19, y = y_core - 11 })
+					table.insert(protected_head_ldtcs, ph_1)
+					table.insert(protected_head_ldtcs, ph_2)
+					table.insert(protected_head_ldtcs, ph_3)
+					for _, item in ipairs(protected_head_ldtcs) do
+						part({ type = pt.INSL, x = item.x, y = item.y })
+					end
 				end
 				part({ type = pt.FILT, x = x_instr_2     , y = y_core -  9 })
 				part({ type = pt.FILT, x = x_instr_2 +  1, y = y_core -  9 })
+				part({ type = pt.LDTC, x = x_instr_2 -  4, y = y_core -  7, life = 2 })
+				part({ type = pt.LDTC, x = x_instr_2 -  3, y = y_core -  7, life = 2, tmp = 1 })
 				part({ type = pt.LDTC, x = x_instr_2 -  2, y = y_core -  7, life = 1, tmp = 1 })
 				part({ type = pt.LDTC, x = x_instr_2 -  1, y = y_core -  7, life = 1, tmp = 1 })
-				part({ type = pt.LDTC, x = x_instr_2 - 21, y = y_core -  8, life = 1 })
-				part({ type = pt.FILT, x = x_instr_2 - 20, y = y_core -  7 })
-				part({ type = pt.LDTC, x = x_instr_2 -  4, y = y_core -  7, life = 2 })
-				part({ type = pt.LDTC, x = x_instr_2 -  3, y = y_core -  7, life = 2 })
-				part({ type = pt.LDTC, x = x_instr_2 - 31, y = y_core -  4, life = 5 })
-				part({ type = pt.LDTC, x = x_instr_2 - 30, y = y_core -  4, life = 5 })
-				part({ type = pt.LDTC, x = x_instr_2 - 29, y = y_core -  4, life = 5 })
+				part({ type = pt.LDTC, x = x_instr_2     , y = y_core -  7, life = 0, tmp = 1 })
+				part({ type = pt.LDTC, x = x_instr_2 +  1, y = y_core -  4, life = 3, tmp = 1 })
+				part({ type = pt.LDTC, x = x_instr_2 -  5, y = y_core -  8, life = 1, tmp = 1 })
+				part({ type = pt.FILT, x = x_instr_2 -  6, y = y_core -  7 })
+				local mul_failed = part({ type = pt.FILT, x = x_instr_2 +  1, y = y_core -  8, ctype = 0x10000000 })
+				if core_types[ix_eu] == "m" then
+					part({ type = pt.LDTC, x = x_instr_2 -  7, y = y_core +  3, life = 14 })
+					part({ type = pt.LDTC, x = x_instr_2 - 31, y = y_core -  4, life = 3 })
+					part({ type = pt.LDTC, x = x_instr_2 - 30, y = y_core -  4, life = 3 })
+					part({ type = pt.LDTC, x = x_instr_2 - 29, y = y_core -  4, life = 3 })
+
+					part({ type = pt.LDTC, x = x_instr_2 - 27, y = y_core - 9 })
+					part({ type = pt.LDTC, x = x_instr_2 - 26, y = y_core - 9 })
+					part({ type = pt.LDTC, x = x_instr_2 - 25, y = y_core - 9 })
+					part({ type = pt.LDTC, x = x_instr_2 - 24, y = y_core - 9 })
+					part({ type = pt.FILT, x = x_instr_2 - 22, y = y_core - 9 })
+					part({ type = pt.FILT, x = x_instr_2 - 21, y = y_core - 9 })
+					part({ type = pt.FILT, x = x_instr_2 - 20, y = y_core - 9 })
+					part({ type = pt.FILT, x = x_instr_2 - 19, y = y_core - 9 })
+				else
+					part({ type = pt.FILT, x = x_instr_2 +  5, y = y_core -  9, ctype = 0x0000000F })
+					part({ type = pt.LDTC, x = x_instr_2 -  7, y = y_core +  3, life = 11 })
+					part({ type = pt.LDTC, x = x_instr_2 - 31, y = y_core -  4, life = 5 })
+					part({ type = pt.LDTC, x = x_instr_2 - 30, y = y_core -  4, life = 5 })
+					part({ type = pt.LDTC, x = x_instr_2 - 29, y = y_core -  4, life = 5 })
+
+					part({ type = pt.LDTC, x = x_instr_2 - 27, y = y_core - 9 })
+					part({ type = pt.FILT, x = x_instr_2 - 28, y = y_core - 8 })
+					aray(x_instr_2 - 29, y_core - 8, -1, 0, pt.METL, nil, 1)
+					part({ type = pt.STOR, x = x_instr_2 - 27, y = y_core - 8 })
+					part({ type = pt.STOR, x = x_instr_2 - 26, y = y_core - 8 })
+					part({ type = pt.FILT, x = x_instr_2 - 25, y = y_core - 8, tmp = 1, ctype = 4 })
+					part({ type = pt.FILT, x = x_instr_2 - 24, y = y_core - 8, ctype = 0x10000001 })
+					local source = part({ type = pt.BRAY, x = x_instr_2 - 23, y = y_core - 8, ctype = 0x10000000, life = 1 })
+					part({ type = pt.FILT, x = x_instr_2 - 22, y = y_core - 8, ctype = 0x10000000 })
+					aray(x_instr_2 - 21, y_core - 8, 1, 0, pt.METL, nil, 1)
+
+					ldtc(x_instr_2 - 15, y_core - 8, source.x, source.y)
+					dray(x_instr_2 - 15, y_core - 8, mul_failed.x, mul_failed.y, 1, pt.PSCN)
+					part({ type = pt.FILT, x = x_instr_2 - 14, y = y_core - 8, ctype = 0x10000000 })
+				end
 				part({ type = pt.LDTC, x = x_instr_2 - 28, y = y_core -  4, life = 5 })
 				part({ type = pt.LDTC, x = x_instr_2 + 12, y = y_core -  4, life = 1 })
 
@@ -987,17 +1038,17 @@ local function build_internal(params)
 				part({ type = pt.FILT, x = x_instr_2 +  8, y = y_core -  5 })
 				part({ type = pt.INSL, x = x_instr_2 +  9, y = y_core -  7 })
 
-				part({ type = pt.LDTC, x = x_instr_2 - 23, y = y_core - 9, tmp = 1 })
-				local bus_hi         = part({ type = pt.FILT, x = x_instr_2 - 99, y = y_core -  6, ctype = 0x10000000 })
-				local bus_lo         = part({ type = pt.FILT, x = x_instr_2 - 99, y = y_core -  7, ctype = 0x10000000 })
-				local res_hi         = part({ type = pt.FILT, x = x_instr_2 - 24, y = y_core -  8 })
-				local res_lo_addr_hi = part({ type = pt.FILT, x = x_instr_2 - 25, y = y_core -  9 })
-				local addr_lo        =      {                 x = x_instr_2 - 23, y = y_core - 10 }
-				aray(x_instr_2 - 26, y_core - 9, -1, 1, pt.METL, nil, 1)
-				part({ type = pt.DTEC, x = x_instr_2 - 26, y = y_core -  9, tmp2 = 2 })
-				part({ type = pt.BRAY, x = x_instr_2 - 24, y = y_core - 11, life = 1 })
+				part({ type = pt.LDTC, x = x_instr_2 - 3, y = y_core - 9, tmp = 1 })
+				local bus_hi         = part({ type = pt.FILT, x = x_instr_2 - 151, y = y_core -  6, ctype = 0x10000000 })
+				local bus_lo         = part({ type = pt.FILT, x = x_instr_2 - 151, y = y_core -  7, ctype = 0x10000000 })
+				local res_hi         = part({ type = pt.FILT, x = x_instr_2 - 4, y = y_core -  8 })
+				local res_lo_addr_hi = part({ type = pt.FILT, x = x_instr_2 - 5, y = y_core -  9 })
+				local addr_lo        =      {                 x = x_instr_2 - 22, y = y_core - 10 }
+				aray(x_instr_2 - 6, y_core - 9, -1, 1, pt.METL, nil, 1)
+				part({ type = pt.DTEC, x = x_instr_2 - 6, y = y_core -  9, tmp2 = 2 })
+				part({ type = pt.BRAY, x = x_instr_2 - 4, y = y_core - 11, life = 1 })
 				if ix_eu == 0 then
-					part({ type = pt.INSL, x = x_instr_2 - 22, y = y_core - 13 })
+					part({ type = pt.INSL, x = x_instr_2 - 2, y = y_core - 13 })
 				end
 
 				part({ type = pt.FILT, x = x_instr_2 + 14, y = res_hi.y, dcolour = 0xFF00FFFF })
@@ -1255,19 +1306,27 @@ local function build_internal(params)
 			dray(target_instr.x, target_instr.y + 1, target_instr.x, target_instr.y - eu_spacing * eus, 1, pt.PSCN)
 		end
 		do
-			local target_pc_lo = part({ type = pt.FILT, x = x_regs + 2, y = y_reader })
-			local target_pc_hi = part({ type = pt.FILT, x = x_regs + 4, y = y_reader })
-			local target_defer = part({ type = pt.FILT, x = x_regs + 6, y = y_reader })
+			local target_pc_lo = part({ type = pt.FILT, x = x_regs +  2, y = y_reader })
+			local target_pc_hi = part({ type = pt.FILT, x = x_regs +  4, y = y_reader })
+			local target_defer = part({ type = pt.FILT, x = x_regs +  6, y = y_reader })
+			local target_mr_lo = part({ type = pt.FILT, x = x_regs + 12, y = y_reader })
+			local target_mr_hi = part({ type = pt.FILT, x = x_regs + 16, y = y_reader })
+			local target_u3ins = part({ type = pt.FILT, x = x_regs + 18, y = y_reader })
+			                     part({ type = pt.FILT, x = x_regs + 12, y = y_reader + 2, ctype = 0xDEADBEEF })
+			                     part({ type = pt.FILT, x = x_regs + 16, y = y_reader + 2, ctype = 0xDEADBEEF })
 			set_pc_lo, set_pc_hi, get_shutdown = target_pc_lo, target_pc_hi, target_defer
 			dray(target_pc_lo.x, target_pc_lo.y + 1, target_pc_lo.x, target_pc_lo.y - eu_spacing * eus, 1, pt.PSCN)
 			dray(target_pc_hi.x, target_pc_hi.y + 1, target_pc_hi.x, target_pc_hi.y - eu_spacing * eus, 1, pt.PSCN)
 			local y_target_defer = target_defer.y - eu_spacing * eus
 			dray(target_defer.x, target_defer.y + 1, target_defer.x, y_target_defer, 1, pt.PSCN)
 			dray(target_defer.x + 1, y_target_defer - 1, target_defer.x - 2, y_target_defer + 2, 1, pt.PSCN)
+			dray(target_mr_lo.x, target_mr_lo.y + 3, target_mr_lo.x, target_mr_lo.y - eu_spacing * eus + 2, 3, pt.PSCN)
+			dray(target_mr_hi.x, target_mr_hi.y + 3, target_mr_hi.x, target_mr_hi.y - eu_spacing * eus + 2, 3, pt.PSCN)
+			dray(target_u3ins.x, target_u3ins.y + 1, target_u3ins.x, target_u3ins.y - eu_spacing * eus    , 1, pt.PSCN)
 		end
-		cray(x_regs +  7, y_reader + 2, x_regs +  7, y_reader - eu_spacing * eus + 1, pt.INSL, 1, pt.PSCN)
-		cray(x_regs +  9, y_reader + 2, x_regs +  9, y_reader - eu_spacing * eus + 1, pt.INSL, 1, pt.PSCN)
-		cray(x_regs + 29, y_reader + 2, x_regs + 29, y_reader - eu_spacing * eus + 1, pt.INSL, 1, pt.PSCN)
+		for _, item in ipairs(protected_head_ldtcs) do
+			cray(item.x, y_reader + 2, item.x, item.y, pt.INSL, 1, pt.PSCN)
+		end
 	end
 
 	do -- head
@@ -1281,12 +1340,35 @@ local function build_internal(params)
 		for ix_eu = 0, eus - 1 do
 			local x_core = x_body + 25
 			local y_core = y_ix_eu(ix_eu) - 7
-			plot.merge_parts(x_core, y_core, parts, tail.get_parts(), {
-				[ 86 ] = 90,
-				[ 87 ] = 91,
-				[ 88 ] = 92,
-				[ 89 ] = 93,
-			})
+			plot.merge_parts(x_core, y_core, parts, tail.get_parts(), {})
+		end
+	end
+	do -- multiplier
+		for ix_eu = 0, eus - 1 do
+			local x_core = x_body + 25
+			local y_core = y_ix_eu(ix_eu) - 5
+			if core_types[ix_eu] == "m" then
+				local remap = {}
+				for i = 28, 44 do
+					remap[i] = i + 4
+				end
+				for i = 45, 61 do
+					remap[i] = i + 7
+				end
+				for i = 62, 69 do
+					remap[i] = i + 8
+				end
+				remap[27] = 91
+				remap[71] = 89
+				remap[70] = 85
+				plot.merge_parts(x_core, y_core, parts, multiplier.get_parts(), remap)
+			else
+				local target_1 = part({ type = pt.FILT, x = x_core +  94, y = y_core, ctype = 0xFFFFFFFF })
+				local target_2 = part({ type = pt.FILT, x = x_core +  98, y = y_core, ctype = 0xFFFFFFFF })
+				part({ type = pt.FILT, x = x_core + 86, y = y_core, ctype = 0x10000000 })
+				dray(x_core + 85, target_1.y, target_1.x, target_1.y, 1, pt.PSCN)
+				dray(x_core + 85, target_2.y, target_2.x, target_2.y, 1, pt.PSCN)
+			end
 		end
 	end
 	do -- bus control

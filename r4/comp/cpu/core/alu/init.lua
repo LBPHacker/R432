@@ -8,7 +8,7 @@ local shifter   = require("r4.comp.cpu.core.alu.shifter").instantiate()
 local imm12s    = require("r4.comp.cpu.core.alu.imm12s") .instantiate()
 
 return testbed.module(function(params, params_name)
-	check.one_of(params_name .. ".unit_type", params.unit_type, { "fm", "l" })
+	check.one_of(params_name .. ".unit_type", params.unit_type, { "f", "m", "l" })
 	local has_jal = params.unit_type == "l"
 
 	return {

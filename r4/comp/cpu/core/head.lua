@@ -7,7 +7,8 @@ local instr_split     = require("r4.comp.cpu.core.instr_split")    .instantiate(
 local regs            = require("r4.comp.cpu.core.regs")           .instantiate()
 
 return testbed.module(function(params)
-	local unit_firstmiddle = unit.instantiate({ unit_type = "fm" }, "?")
+	local unit_first = unit.instantiate({ unit_type = "f" }, "?")
+	local unit_middle = unit.instantiate({ unit_type = "m" }, "?")
 
 	local units = 3
 	local inputs = {
@@ -19,15 +20,19 @@ return testbed.module(function(params)
 		{ name = "rhs_lo_" .. units, index = 89, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "rhs_hi_" .. units, index = 91, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "instr_"  .. units, index = 86, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
+		{ name = "instr_prev"      , index = 78, keepalive = 0x00000009, payload = 0xFFFFFFF6, initial = 0x00000009 },
+		{ name = "mul_prev_lo"     , index = 72, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+		{ name = "mul_prev_hi"     , index = 76, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 	}
 	local outputs = {
-		{ name = "pc_lo"           , index = 89, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "pc_hi"           , index = 90, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "lhs_lo_" .. units, index = 67, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "lhs_hi_" .. units, index = 68, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "rhs_lo_" .. units, index = 69, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "rhs_hi_" .. units, index = 70, keepalive = 0x10000000, payload = 0x0000FFFF },
-		{ name = "instr_"  .. units, index = 71, keepalive = 0x00000001, payload = 0xFFFFFFFE },
+		{ name = "pc_lo"                   , index = 89, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "pc_hi"                   , index = 90, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "lhs_lo_" .. units        , index = 67, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "lhs_hi_" .. units        , index = 68, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "rhs_lo_" .. units        , index = 69, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "rhs_hi_" .. units        , index = 70, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "instr_"  .. units        , index = 71, keepalive = 0x00000001, payload = 0xFFFFFFFE },
+		{ name = "instr_"  .. units .. "_b", index = 94, keepalive = 0x00000009, payload = 0xFFFFFFF6 },
 	}
 	for ix_unit = 0, units - 1 do
 		table.insert(inputs , { name = "lhs_lo_" .. ix_unit, index = 61 + ix_unit * 8, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
@@ -55,7 +60,7 @@ return testbed.module(function(params)
 		work_slots    = 25,
 		inputs        = inputs,
 		outputs       = outputs,
-		clobbers      = { 68, 70, 72, 74, 76, 78, 88, 90, 92, 93 },
+		clobbers      = { 68, 70, 74, 88, 90, 92, 93 },
 		func = function(inputs)
 			local outputs = {}
 			for ix_unit = 0, units do
@@ -91,7 +96,13 @@ return testbed.module(function(params)
 					instr = inputs["instr_"  .. ix_unit],
 				})
 				local ix_next_unit = ix_unit + 1
-				local unit_outputs = unit_firstmiddle.component({
+				local unit_instance
+				if ix_unit == 0 then
+					unit_instance = unit_first
+				else
+					unit_instance = unit_middle
+				end
+				local unit_outputs = unit_instance.component({
 					lhs_lo      = inputs["lhs_lo_" .. ix_unit],
 					lhs_hi      = inputs["lhs_hi_" .. ix_unit],
 					rhs_lo      = inputs["rhs_lo_" .. ix_unit],
@@ -107,6 +118,9 @@ return testbed.module(function(params)
 					next_rhs_lo = inputs["rhs_lo_" .. ix_next_unit],
 					next_rhs_hi = inputs["rhs_hi_" .. ix_next_unit],
 					next_instr  = inputs["instr_"  .. ix_next_unit],
+					instr_prev  = ix_unit == 0 and inputs.instr_prev or nil,
+					mul_prev_lo = ix_unit == 0 and inputs.mul_prev_lo or nil,
+					mul_prev_hi = ix_unit == 0 and inputs.mul_prev_hi or nil,
 				})
 				inputs["lhs_lo_" .. ix_next_unit] = unit_outputs.next_lhs_lo
 				inputs["lhs_hi_" .. ix_next_unit] = unit_outputs.next_lhs_hi
@@ -124,6 +138,8 @@ return testbed.module(function(params)
 			outputs["rhs_lo_" .. units] = inputs["rhs_lo_" .. units]
 			outputs["rhs_hi_" .. units] = inputs["rhs_hi_" .. units]
 			outputs["instr_"  .. units] = inputs["instr_"  .. units]
+			local iub = inputs["instr_"  .. units]:bor(spaghetti.lshiftk(inputs.defer:bor(2):band(3), 2))
+			outputs["instr_"  .. units .. "_b"] = iub
 			outputs.pc_lo = inputs.pc_lo
 			outputs.pc_hi = inputs.pc_hi
 			return outputs
@@ -138,6 +154,9 @@ return testbed.module(function(params)
 				[ "rhs_lo_" .. units ] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				[ "rhs_hi_" .. units ] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				[ "instr_"  .. units ] = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 1),
+				instr_prev             = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 9),
+				mul_prev_lo            = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				mul_prev_hi            = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 			}
 			for ix_unit = 0, units - 1 do
 				inputs["lhs_lo_" .. ix_unit] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
@@ -195,7 +214,13 @@ return testbed.module(function(params)
 					return nil, "instr_split/" .. ix_unit .. ": " .. err
 				end
 				local ix_next_unit = ix_unit + 1
-				local unit_outputs, err = unit_firstmiddle.fuzz_outputs({
+				local unit_instance
+				if ix_unit == 0 then
+					unit_instance = unit_first
+				else
+					unit_instance = unit_middle
+				end
+				local unit_outputs, err = unit_instance.fuzz_outputs({
 					lhs_lo      = inputs["lhs_lo_" .. ix_unit],
 					lhs_hi      = inputs["lhs_hi_" .. ix_unit],
 					rhs_lo      = inputs["rhs_lo_" .. ix_unit],
@@ -211,6 +236,9 @@ return testbed.module(function(params)
 					next_rhs_lo = inputs["rhs_lo_" .. ix_next_unit],
 					next_rhs_hi = inputs["rhs_hi_" .. ix_next_unit],
 					next_instr  = inputs["instr_"  .. ix_next_unit],
+					instr_prev  = ix_unit == 0 and inputs.instr_prev or nil,
+					mul_prev_lo = ix_unit == 0 and inputs.mul_prev_lo or nil,
+					mul_prev_hi = ix_unit == 0 and inputs.mul_prev_hi or nil,
 				})
 				if not unit_outputs then
 					return nil, "unit/" .. ix_unit .. ": " .. err
@@ -231,6 +259,13 @@ return testbed.module(function(params)
 			outputs["rhs_lo_" .. units] = inputs["rhs_lo_" .. units]
 			outputs["rhs_hi_" .. units] = inputs["rhs_hi_" .. units]
 			outputs["instr_"  .. units] = inputs["instr_"  .. units]
+			local iub = inputs["instr_"  .. units]
+			if bitx.band(inputs.defer, 1) ~= 0 then
+				iub = bitx.bor(iub, 0xC)
+			else
+				iub = bitx.bor(iub, 0x8)
+			end
+			outputs["instr_"  .. units .. "_b"] = iub
 			outputs.pc_lo = inputs.pc_lo
 			outputs.pc_hi = inputs.pc_hi
 			return outputs

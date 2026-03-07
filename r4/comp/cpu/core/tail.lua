@@ -20,11 +20,11 @@ return testbed.module(function(params)
 			seed          = { 0x56789ABC, 0x87654324 },
 		},
 		stacks        = 2,
-		storage_slots = 90,
+		storage_slots = 94,
 		work_slots    = 25,
 		inputs = {
-			{ name = "pc_lo"   , index = 89, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-			{ name = "pc_hi"   , index = 90, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "pc_lo"   , index = 93, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "pc_hi"   , index = 94, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "shutdown", index = 70, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
 			{ name = "start"   , index = 55, keepalive = 0x10000000, payload = 0x00000003, initial = 0x10000000 },
 			{ name = "lhs_lo"  , index = 71, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
@@ -34,14 +34,19 @@ return testbed.module(function(params)
 			{ name = "instr"   , index = 75, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 		},
 		outputs = {
-			{ name = "pc_lo"         , index = 87, keepalive = 0x10000000, payload = 0x0000FFFF },
-			{ name = "pc_hi"         , index = 88, keepalive = 0x10000000, payload = 0x0000FFFF },
-			{ name = "shutdown"      , index = 86, keepalive = 0x10000000, payload = 0x00000001 },
-			{ name = "addr_lo"       , index = 69, keepalive = 0x10000000, payload = 0x03FFFFFF },
-			{ name = "res_lo_addr_hi", index = 67, keepalive = 0x10000000, payload = 0x07FFFFFF },
-			{ name = "res_hi"        , index = 70, keepalive = 0x10000000, payload = 0x0000FFFF },
-			{ name = "res_rd"        , index = 68, keepalive = 0x10000000, payload = 0x0000001F },
+			{ name = "pc_lo"           , index = 91, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "pc_hi"           , index = 92, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "shutdown"        , index = 86, keepalive = 0x10000000, payload = 0x00000001 },
+			{ name = "addr_lo"         , index = 70, keepalive = 0x10000000, payload = 0x03FFFFFF },
+			{ name = "res_lo_addr_hi"  , index = 67, keepalive = 0x10000000, payload = 0x07FFFFFF },
+			{ name = "res_hi"          , index = 69, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "res_rd"          , index = 68, keepalive = 0x10000000, payload = 0x0000001F },
+			{ name = "addr_lo_b"       , index = 89, keepalive = 0x10000000, payload = 0x03FFFFFF },
+			{ name = "res_lo_addr_hi_b", index = 87, keepalive = 0x10000000, payload = 0x07FFFFFF },
+			{ name = "res_hi_b"        , index = 90, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "mul_control"     , index = 66, keepalive = 0x10000000, payload = 0x00000007 },
 		},
+		clobbers = { 64, 65, 78, 82 },
 		func = function(inputs)
 			local instr_split_outputs = instr_split.component({
 				instr = inputs.instr,
@@ -107,13 +112,17 @@ return testbed.module(function(params)
 			local res_lo_addr_hi = res_lo:bor(spaghetti.lshiftk(address_outputs.sum_hi:bsub(0xFF):bor(0x100000), 8))
 			                             :bor(spaghetti.lshiftk(memmode:bor(0x10), 24))
 			return {
-				pc_lo          = pc_lo,
-				pc_hi          = pc_hi,
-				shutdown       = inputs.shutdown:bor(instr_hlt:bxor(1)):bsub(inputs.start):bor(spaghetti.rshiftk(inputs.start, 1)):bor(0x10000000):band(0x10000001),
-				addr_lo        = addr_lo,
-				res_lo_addr_hi = res_lo_addr_hi,
-				res_hi         = res_hi,
-				res_rd         = spaghetti.select(unit_outputs.output:band(1):zeroable(), regs_outputs.rd, 0x10000000),
+				pc_lo            = pc_lo,
+				pc_hi            = pc_hi,
+				shutdown         = inputs.shutdown:bor(instr_hlt:bxor(1)):bsub(inputs.start):bor(spaghetti.rshiftk(inputs.start, 1)):bor(0x10000000):band(0x10000001),
+				addr_lo          = addr_lo,
+				res_lo_addr_hi   = res_lo_addr_hi,
+				res_hi           = res_hi,
+				addr_lo_b        = addr_lo,
+				res_lo_addr_hi_b = res_lo_addr_hi,
+				res_hi_b         = res_hi,
+				res_rd           = spaghetti.select(unit_outputs.output:band(1):zeroable(), regs_outputs.rd, 0x10000000),
+				mul_control      = unit_outputs.mul_control,
 			}
 		end,
 		fuzz_inputs = function()
@@ -219,14 +228,21 @@ return testbed.module(function(params)
 				bitx.lshift(bitx.band(bitx.rshift(address_outputs.sum_hi, 8), 0xFF), 16),
 				bitx.lshift(memmode, 24)
 			)
+			local addr_lo        = bitx.bor(addr_lo       , 0x10000000)
+			local res_lo_addr_hi = bitx.bor(res_lo_addr_hi, 0x10000000)
+			local res_hi         = res_hi
 			return {
-				pc_lo          = pc_lo,
-				pc_hi          = pc_hi,
-				shutdown       = shutdown and 0x10000001 or 0x10000000,
-				addr_lo        = bitx.bor(addr_lo       , 0x10000000),
-				res_lo_addr_hi = bitx.bor(res_lo_addr_hi, 0x10000000),
-				res_hi         = res_hi,
-				res_rd         = bitx.band(unit_outputs.output, 1) ~= 0 and regs_outputs.rd or 0x10000000,
+				pc_lo            = pc_lo,
+				pc_hi            = pc_hi,
+				shutdown         = shutdown and 0x10000001 or 0x10000000,
+				addr_lo          = addr_lo,
+				res_lo_addr_hi   = res_lo_addr_hi,
+				res_hi           = res_hi,
+				addr_lo_b        = addr_lo,
+				res_lo_addr_hi_b = res_lo_addr_hi,
+				res_hi_b         = res_hi,
+				res_rd           = bitx.band(unit_outputs.output, 1) ~= 0 and regs_outputs.rd or 0x10000000,
+				mul_control      = unit_outputs.mul_control,
 			}
 		end,
 	}

@@ -11,21 +11,22 @@ return testbed.module(function(params)
 			temp_final    = 0.5,
 			temp_loss     = 1e-6,
 			round_length  = 10000,
-			seed          = { 0x56789ABC, 0x87654321 },
+			seed          = { 0x56789ABC, 0x87654322 },
 		},
 		stacks        = 1,
 		storage_slots = 43,
 		work_slots    = 14,
 		clobbers      = { 39 },
 		inputs = {
-			{ name = "addr_lo"       , index = 32, keepalive = 0x10000000, payload = 0x03FFFFFF, initial = 0x10000000 },
+			{ name = "addr_lo"       , index = 33, keepalive = 0x10000000, payload = 0x03FFFFFF, initial = 0x10000000 },
 			{ name = "res_lo_addr_hi", index = 30, keepalive = 0x10000000, payload = 0x07FFFFFF, initial = 0x10000000 },
-			{ name = "res_hi"        , index = 33, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "res_hi"        , index = 32, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "bus_lo"        , index =  5, keepalive = 0x10000000, payload = 0x0003FFFF, initial = 0x10000000 },
 			{ name = "bus_hi"        , index = 38, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "res_rd"        , index = 31, keepalive = 0x10000000, payload = 0x0000001F, initial = 0x10000000 },
 			{ name = "mem_rest"      , index = 36, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 			{ name = "mem_lsb"       , index = 37, keepalive = 0x00000000, payload = 0xFFFFFFFF, initial = 0x20000000, never_zero = true },
+			{ name = "mul_failed"    , index = 43, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
 		},
 		outputs = {
 			{ name = "core_lo" , index = 40, keepalive = 0x10000000, payload = 0x0000FFFF },
@@ -52,7 +53,7 @@ return testbed.module(function(params)
 			)
 			local res_rd = inputs.res_rd
 			wmask_lo, wmask_hi, res_rd = spaghetti.select(
-				inputs.bus_lo:band(0x20000):zeroable(),
+				spaghetti.rshiftk(inputs.bus_lo, 17):bor(inputs.mul_failed):band(1):zeroable(),
 				0x10000000, wmask_lo,
 				0x10000000, wmask_hi,
 				0x10000000, res_rd
@@ -122,21 +123,23 @@ return testbed.module(function(params)
 				res_rd         = bitx.bor(math.random(0x00000000, 0x0000001F), 0x10000000),
 				bus_lo         = bitx.bor(math.random(0x00000000, 0x0003FFFF), 0x10000000),
 				bus_hi         = bitx.bor(math.random(0x00000000, 0x0000FFFF), 0x10000000),
+				mul_failed     = bitx.bor(math.random(0x0000, 0x0001), 0x10000000),
 				mem_rest       = mem_rest,
 				mem_lsb        = mem_lsb,
 			}
 		end,
 		fuzz_outputs = function(inputs)
-			local handled  = bitx.band(inputs.bus_lo, 0x10000) ~= 0
-			local wait     = bitx.band(inputs.bus_lo, 0x20000) ~= 0
-			local write    = bitx.band(inputs.addr_lo, 0x02000000) ~= 0
-			local read     = bitx.band(inputs.addr_lo, 0x01000000) ~= 0
-			local unsigned = bitx.band(inputs.res_lo_addr_hi, 0x04000000) ~= 0
-			local word     = bitx.band(inputs.res_lo_addr_hi, 0x02000000) ~= 0
-			local halfword = bitx.band(inputs.res_lo_addr_hi, 0x01000000) ~= 0
-			local core_in  = bitx.bor(bitx.band(inputs.res_lo_addr_hi, 0xFFFF), bitx.lshift(bitx.band(inputs.res_hi, 0xFFFF), 16))
-			local bus_in   = bitx.bor(bitx.band(inputs.bus_lo, 0xFFFF), bitx.lshift(bitx.band(inputs.bus_hi, 0xFFFF), 16))
-			local mem_in   = bitx.bor(bitx.band(inputs.mem_rest, 0xFFFFFFFE), bitx.band(inputs.mem_lsb, 1))
+			local handled    = bitx.band(inputs.bus_lo, 0x10000) ~= 0
+			local wait       = bitx.band(inputs.bus_lo, 0x20000) ~= 0
+			local mul_failed = bitx.band(inputs.mul_failed, 1) ~= 0
+			local write      = bitx.band(inputs.addr_lo, 0x02000000) ~= 0
+			local read       = bitx.band(inputs.addr_lo, 0x01000000) ~= 0
+			local unsigned   = bitx.band(inputs.res_lo_addr_hi, 0x04000000) ~= 0
+			local word       = bitx.band(inputs.res_lo_addr_hi, 0x02000000) ~= 0
+			local halfword   = bitx.band(inputs.res_lo_addr_hi, 0x01000000) ~= 0
+			local core_in    = bitx.bor(bitx.band(inputs.res_lo_addr_hi, 0xFFFF), bitx.lshift(bitx.band(inputs.res_hi, 0xFFFF), 16))
+			local bus_in     = bitx.bor(bitx.band(inputs.bus_lo, 0xFFFF), bitx.lshift(bitx.band(inputs.bus_hi, 0xFFFF), 16))
+			local mem_in     = bitx.bor(bitx.band(inputs.mem_rest, 0xFFFFFFFE), bitx.band(inputs.mem_lsb, 1))
 			local core_out, write_data, write_mask
 			local shiftf = unsigned and bitx.rshift or bitx.arshift
 			if word then
@@ -164,7 +167,7 @@ return testbed.module(function(params)
 				write_mask = 0
 			end
 			local res_rd = inputs.res_rd
-			if wait then
+			if wait or mul_failed then
 				res_rd = 0x10000000
 				write_mask = 0
 			end

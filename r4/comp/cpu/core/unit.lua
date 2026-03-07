@@ -5,9 +5,11 @@ local check     = require("spaghetti.check")
 local alu       = require("r4.comp.cpu.core.alu")
 local cbranch   = require("r4.comp.cpu.core.cbranch").instantiate()
 local incr_pc   = require("r4.comp.cpu.core.incr_pc").instantiate()
+local regs      = require("r4.comp.cpu.core.regs")   .instantiate()
 
 return testbed.module(function(params, params_name)
-	check.one_of(params_name .. ".unit_type", params.unit_type, { "fm", "l" })
+	check.one_of(params_name .. ".unit_type", params.unit_type, { "f", "m", "l" })
+	local has_prev_mul = params.unit_type == "f"
 	local has_jal = params.unit_type == "l"
 
 	local alu_instance = alu.instantiate(params, params_name)
@@ -31,9 +33,15 @@ return testbed.module(function(params, params_name)
 		{ name = "output", index = 11, keepalive = 0x10000000, payload = 0x00000001 },
 		{ name = "taken" , index = 23, keepalive = 0x10000000, payload = 0x00000001 },
 	}
+	if has_prev_mul then
+		table.insert(inputs, { name = "instr_prev" , index = 31, keepalive = 0x00000009, payload = 0xFFFFFFF6, initial = 0x00000009 })
+		table.insert(inputs, { name = "mul_prev_lo", index = 33, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
+		table.insert(inputs, { name = "mul_prev_hi", index = 35, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
+	end
 	if has_jal then
-		table.insert(outputs, { name = "jal_lo", index = 25, keepalive = 0x10000000, payload = 0x0000FFFF })
-		table.insert(outputs, { name = "jal_hi", index = 27, keepalive = 0x10000000, payload = 0x0000FFFF })
+		table.insert(outputs, { name = "jal_lo"     , index = 25, keepalive = 0x10000000, payload = 0x0000FFFF })
+		table.insert(outputs, { name = "jal_hi"     , index = 27, keepalive = 0x10000000, payload = 0x0000FFFF })
+		table.insert(outputs, { name = "mul_control", index = 29, keepalive = 0x10000000, payload = 0x00000007 })
 	else
 		table.insert(inputs, { name = "instr"      , index = 15, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 })
 		table.insert(inputs, { name = "next_lhs_lo", index = 17, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 })
@@ -57,7 +65,7 @@ return testbed.module(function(params, params_name)
 			round_length  = 10000,
 		},
 		stacks        = 2,
-		storage_slots = 80,
+		storage_slots = 85,
 		work_slots    = 30,
 		inputs = inputs,
 		outputs = outputs,
@@ -113,17 +121,57 @@ return testbed.module(function(params, params_name)
 				eq       = alu_outputs.eq,
 			})
 			local defer = inputs.defer
+			local defer_mul = instr_mul
+			if has_prev_mul then
+				local regs_outputs_prev = regs.component({
+					instr = inputs.instr_prev:bsub(8):relax_payload(0xFFFFFFFE),
+				})
+				local same
+				do
+					local instr_diff = inputs.instr:bsub(8):bxor(inputs.instr_prev)
+					local same_15 = spaghetti.rshiftk(instr_diff:band(0x3FFFFFFF):bor(0x10000), 15):never_zero():bor(0x10000000) -- inverted
+					local same_hi -- inverted
+					do
+						local shift_by = spaghetti.rshiftk(instr_diff:band(0x3FFFFFFF):bor(0x8000), 15):bxor(0x10000):bxor(1)
+						same_hi = spaghetti.constant(0x1000FFFF):rshift(shift_by):never_zero():bor(0x10000000)
+					end
+					local same_lo -- inverted
+					do
+						local shift_by = instr_diff:bsub(3):bsub(0x80):band(0xFF):bxor(0x10000):bxor(8)
+						same_lo = spaghetti.constant(0x1000FFFF):rshift(shift_by):never_zero():bor(0x10000000)
+					end
+					same = same_15:bor(same_hi):bor(same_lo) -- inverted
+				end
+				local lo32
+				do
+					local instr_12 = spaghetti.rshiftk(inputs.instr_lo, 12)
+					local instr_13 = spaghetti.rshiftk(inputs.instr_lo, 13)
+					lo32 = instr_12:bor(instr_13) -- inverted
+				end
+				local rs1_rd_diff, rs2_rd_diff
+				do
+					rs1_rd_diff = spaghetti.constant(0x1000FFFF):rshift(regs_outputs_prev.rd:bor(0x10000):bxor(regs_outputs_prev.rs1)):never_zero():bor(0x10000000):bxor(1) -- inverted
+					rs2_rd_diff = spaghetti.constant(0x1000FFFF):rshift(regs_outputs_prev.rd:bor(0x10000):bxor(regs_outputs_prev.rs2)):never_zero():bor(0x10000000):bxor(1) -- inverted
+				end
+				local can_fuse = same:bor(lo32):bor(rs1_rd_diff):bor(rs2_rd_diff):bxor(1)
+				same:label("same")
+				lo32:label("lo32")
+				rs1_rd_diff:label("rs1_rd_diff")
+				rs2_rd_diff:label("rs2_rd_diff")
+				can_fuse:label("can_fuse")
+				defer_mul = defer_mul:bor(can_fuse)
+			end
 			if not has_jal then
 				defer = defer:bor(cbranch_outputs.taken)
 				             :bor(instr_mem:bxor(1))
-				             :bor(instr_mul:bxor(1))
+				             :bor(defer_mul:bxor(1))
 				             :bor(instr_hltj:bxor(1)):band(0x10000001)
 			end
 			if has_jal then
 				instr_output = instr_output:band(instr_j):band(instr_l)
 			end
 			local output = defer:bxor(1):bsub(instr_output)
-			local pc_lo, pc_hi, next_instr, next_lhs_lo, next_lhs_hi, next_rhs_lo, next_rhs_hi
+			local pc_lo, pc_hi, next_instr, next_lhs_lo, next_lhs_hi, next_rhs_lo, next_rhs_hi, mul_control
 			local res_lo = alu_outputs.res_lo
 			local res_hi = alu_outputs.res_hi
 			if has_jal then
@@ -137,6 +185,7 @@ return testbed.module(function(params, params_name)
 					res_lo, incr_pc_outputs.lo,
 					res_hi, incr_pc_outputs.hi
 				)
+				mul_control = spaghetti.rshiftk(inputs.instr_lo, 12):bsub(8):bsub(4):bor(spaghetti.lshiftk(instr_mul:bsub(0xFFFE):bxor(1), 2)):bor(0x10000000):band(0x1000FFFF)
 			else
 				pc_lo, pc_hi, next_instr, next_lhs_lo, next_lhs_hi, next_rhs_lo, next_rhs_hi = spaghetti.select(
 					defer:band(1):zeroable(),
@@ -147,6 +196,13 @@ return testbed.module(function(params, params_name)
 					inputs.lhs_hi, inputs.next_lhs_hi,
 					inputs.rhs_lo, inputs.next_rhs_lo,
 					inputs.rhs_hi, inputs.next_rhs_hi
+				)
+			end
+			if has_prev_mul then
+				res_lo, res_hi = spaghetti.select(
+					defer_mul:bsub(instr_mul):band(1):zeroable(),
+					inputs.mul_prev_lo, res_lo,
+					inputs.mul_prev_hi, res_hi
 				)
 			end
 			return {
@@ -163,6 +219,7 @@ return testbed.module(function(params, params_name)
 				jal_lo      = alu_outputs.jal_lo,
 				jal_hi      = alu_outputs.jal_hi,
 				taken       = cbranch_outputs.taken,
+				mul_control = mul_control,
 			}
 		end,
 		fuzz_inputs = function()
@@ -181,6 +238,29 @@ return testbed.module(function(params, params_name)
 				instr_hi    = bitx.bor(instr_hi, 0x10000000),
 				defer       = bitx.bor(math.random(0x0000, 0x0001), 0x10000000),
 			}
+			if has_prev_mul then
+				inputs.instr_prev  = bitx.bor(bitx.lshift(math.random(0x00000000, 0x7FFFFFFF), 1), 9)
+				if math.random(0, 1) == 0 then
+					inputs.instr_prev = bitx.bor(instr, 8)
+				end
+				if math.random(0, 1) == 0 then
+					inputs.instr_prev = bitx.bor(inputs.instr_prev, bitx.lshift(math.random(0, 3), 12))
+				end
+				if math.random(0, 1) == 0 then
+					inputs.instr_prev = bitx.bor(bitx.band(inputs.instr_prev, 0xFFFFF07F), bitx.lshift(math.random(0, 31), 7))
+				end
+				if math.random(0, 1) == 0 then
+					inputs.instr_prev = bitx.bor(bitx.band(inputs.instr_prev, 0xFFF07FFF), bitx.lshift(math.random(0, 31), 15))
+				end
+				if math.random(0, 1) == 0 then
+					inputs.instr_prev = bitx.bor(bitx.band(inputs.instr_prev, 0xFE0FFFFF), bitx.lshift(math.random(0, 31), 20))
+				end
+				if math.random(0, 1) == 0 then
+					inputs.instr_prev = bitx.bor(inputs.instr_prev, bitx.lshift(math.random(0, 0x7F), 25))
+				end
+				inputs.mul_prev_lo = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
+				inputs.mul_prev_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
+			end
 			if not has_jal then
 				inputs.next_lhs_lo = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
 				inputs.next_lhs_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000)
@@ -198,8 +278,18 @@ return testbed.module(function(params, params_name)
 			local instr_hlt  = bitx.band(inputs.instr_lo, 0x0050) == 0x0050
 			local instr_l    = bitx.band(inputs.instr_lo, 0x0074) == 0x0000
 			local defer = bitx.band(inputs.defer, 1) ~= 0
+			local defer_mul = instr_mul
+			if has_prev_mul then
+				local diff = bitx.bxor(inputs.instr, inputs.instr_prev)
+				local same = bitx.band(diff, 0x3FFF8074) == 0
+				local lo32 = bitx.band(inputs.instr_lo, 0x3000) == 0x0000
+				local rs1_rd_diff = bitx.band(bitx.rshift(inputs.instr_prev, 15), 0x1F) ~= bitx.band(bitx.rshift(inputs.instr_prev, 7), 0x1F)
+				local rs2_rd_diff = bitx.band(bitx.rshift(inputs.instr_prev, 20), 0x1F) ~= bitx.band(bitx.rshift(inputs.instr_prev, 7), 0x1F)
+				local can_fuse = same and lo32 and rs1_rd_diff and rs2_rd_diff
+				defer_mul = defer_mul and not can_fuse
+			end
 			if not has_jal then
-				defer = defer or instr_mem or instr_mul or instr_jalr or instr_jal or instr_hlt
+				defer = defer or instr_mem or defer_mul or instr_jalr or instr_jal or instr_hlt
 			end
 			local output = bitx.band(inputs.instr_lo, 0x0050) == 0x0010
 			if has_jal then
@@ -267,6 +357,11 @@ return testbed.module(function(params, params_name)
 				res_lo = bitx.bor(0x10000000, bitx.band(            next_pc     , 0xFFFF))
 				res_hi = bitx.bor(0x10000000, bitx.band(bitx.rshift(next_pc, 16), 0xFFFF))
 			end
+			if has_prev_mul and instr_mul and not defer_mul then
+				res_lo = inputs.mul_prev_lo
+				res_hi = inputs.mul_prev_hi
+			end
+			local mul_control = bitx.bor(instr_mul and 4 or 0, bitx.band(bitx.rshift(inputs.instr, 12), 3))
 			return {
 				res_lo      = res_lo,
 				res_hi      = res_hi,
@@ -281,6 +376,7 @@ return testbed.module(function(params, params_name)
 				jal_lo      = alu_outputs.jal_lo,
 				jal_hi      = alu_outputs.jal_hi,
 				taken       = cbranch_outputs.taken,
+				mul_control = has_jal and bitx.bor(0x10000000, mul_control) or nil,
 			}
 		end,
 	}
