@@ -86,6 +86,13 @@ local function alu_op(op, lhs, rhs, shamt, sra, sub)
 	return bitx.band(lhs, rhs)
 end
 
+local function czero_op(op, lhs, rhs)
+	if bitx.band(op, 2) ~= 0 then
+		return rhs ~= 0 and 0 or lhs
+	end
+	return rhs == 0 and 0 or lhs
+end
+
 local function cond_op(op, lhs, rhs)
 	local taken
 	local op_high = bitx.band(bitx.rshift(op, 1), 3)
@@ -167,18 +174,26 @@ function emu_context_i:eu_(ix_eu)
 				false
 			)
 		elseif bitx.band(instr, 0x00000074) == 0x00000030 then
-			rd_value = alu_op(
-				bitx.band(bitx.rshift(instr, 12), 7),
-				self.regs[rs1],
-				self.regs[rs2],
-				self.regs[rs2],
-				bitx.band(instr, 0x40000000) ~= 0,
-				bitx.band(instr, 0x40000000) ~= 0
-			)
-			if bitx.band(instr, 0x02000000) ~= 0 then -- TODO: implement mul
-				if not last_subeu then
-					defer()
-					break
+			if bitx.band(instr, 0x06000000) == 0x06000000 then
+				rd_value = czero_op(
+					bitx.band(bitx.rshift(instr, 12), 7),
+					self.regs[rs1],
+					self.regs[rs2]
+				)
+			else
+				rd_value = alu_op(
+					bitx.band(bitx.rshift(instr, 12), 7),
+					self.regs[rs1],
+					self.regs[rs2],
+					self.regs[rs2],
+					bitx.band(instr, 0x40000000) ~= 0,
+					bitx.band(instr, 0x40000000) ~= 0
+				)
+				if bitx.band(instr, 0x02000000) ~= 0 then -- TODO: implement mul
+					if not last_subeu then
+						defer()
+						break
+					end
 				end
 			end
 		elseif bitx.band(instr, 0x00000050) == 0x00000050 then

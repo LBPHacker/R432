@@ -72,9 +72,10 @@ return testbed.module(function(params, params_name)
 			local instr_6i  = instr_6:bxor(1)
 			local instr_25  = spaghetti.rshiftk(inputs.instr_hi, 9)
 			local instr_25i = instr_25:bxor(1)
+			local instr_26  = spaghetti.rshiftk(inputs.instr_hi, 10)
 			local instr_output = instr_4i:bor(instr_6)
 			local instr_mem  = instr_4:bor(instr_6)
-			local instr_mul  = instr_2:bor(instr_4i):bor(instr_5i):bor(instr_6):bor(instr_25i)
+			local instr_mul  = instr_2:bor(instr_4i):bor(instr_5i):bor(instr_6):bor(instr_25i):bor(instr_26)
 			local instr_hltj = instr_2:bor(instr_3):bor(instr_4):bxor(1):bor(instr_6i)
 			local instr_j    = instr_2:bor(instr_3):bxor(1):bor(instr_4):bor(instr_6i)
 			local instr_l    = instr_6:bor(instr_5):bor(instr_4):bor(instr_2)
@@ -191,7 +192,7 @@ return testbed.module(function(params, params_name)
 		end,
 		fuzz_outputs = function(inputs)
 			local instr_mem  = bitx.band(inputs.instr_lo, 0x0050) == 0x0000
-			local instr_mul  = bitx.band(inputs.instr_lo, 0x0074) == 0x0030 and bitx.band(inputs.instr_hi, 0x0200) == 0x0200
+			local instr_mul  = bitx.band(inputs.instr_lo, 0x0074) == 0x0030 and bitx.band(inputs.instr_hi, 0x0600) == 0x0200
 			local instr_jalr = bitx.band(inputs.instr_lo, 0x005C) == 0x0044
 			local instr_jal  = bitx.band(inputs.instr_lo, 0x0058) == 0x0048
 			local instr_hlt  = bitx.band(inputs.instr_lo, 0x0050) == 0x0050

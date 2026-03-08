@@ -89,9 +89,18 @@ local function run(params)
 	if false then
 		local instr_seq = {}
 		if false then
-			for i = 1, 1000 do
+			for i = 1, 20 do
 				table.insert(instr_seq, pick_random({
-					{ constant = 0x00002020, mask = 0x00002070, weight =   100 },
+					{ constant = 0x00000010, mask = 0x00000074, weight = 10000 },
+					{ constant = 0x00000030, mask = 0x00000074, weight = 10000 },
+					{ constant = 0x00000050, mask = 0x00000050, weight =     1 },
+					{ constant = 0x00000014, mask = 0x00000054, weight =   100 },
+					{ constant = 0x00000048, mask = 0x00000058, weight =   100 },
+					{ constant = 0x00000044, mask = 0x0000005C, weight =   100 },
+					{ constant = 0x00000040, mask = 0x0000005C, weight =   100 },
+					{ constant = 0x00000020, mask = 0x00000070, weight =   100 },
+					{ constant = 0x00000000, mask = 0x00000074, weight =   100 },
+					{ constant = 0x00000004, mask = 0x00000074, weight =    10 },
 				}))
 			end
 			table.insert(instr_seq, 0x00000050)
@@ -100,7 +109,7 @@ local function run(params)
 			end
 		else
 			instr_seq = {
-				0x83BFB72D,
+				0xC7954B91,
 				0x00000050,
 			}
 		end
@@ -153,7 +162,7 @@ local function run(params)
 	local auto_snap = false
 	local always_compare_all = true
 	local auto_unpause = true
-	local load_snap_path -- = "r4ilfuzz.1772793778.state"
+	local load_snap_path -- = "r4ilfuzz.1772968321.state"
 
 	if load_snap_path then
 		auto_snap = false
@@ -509,6 +518,9 @@ local function run(params)
 			sync_head()
 			until_next_randomize = nil
 			until_next_restart = nil
+			if auto_snap then
+				snap_all()
+			end
 			return
 		end
 		if load_snap_path then
@@ -538,6 +550,9 @@ local function run(params)
 		sync_head()
 		random_bus_inputs()
 		until_next_randomize = math.random(50, 200)
+		if auto_snap then
+			snap_all()
+		end
 	end
 	randomize()
 

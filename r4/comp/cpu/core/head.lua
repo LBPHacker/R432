@@ -47,7 +47,7 @@ return testbed.module(function(params)
 			temp_final    = 0.5,
 			temp_loss     = 1e-6,
 			round_length  = 10000,
-			seed          = { 0x56789ABC, 0x87654326 },
+			seed          = { 0x56789ABC, 0x87654329 },
 			work_slot_overhead_penalty = 30,
 		},
 		stacks        = 5,

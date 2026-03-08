@@ -49,14 +49,20 @@ return testbed.module(function(params, params_name)
 			local instr_2i    = instr_2:bxor(1)
 			local instr_4     = spaghetti.rshiftk(inputs.instr_lo, 4)
 			local instr_5     = spaghetti.rshiftk(inputs.instr_lo, 5)
+			local instr_5i    = instr_5:bxor(1)
 			local instr_12    = spaghetti.rshiftk(inputs.instr_lo, 12)
 			local instr_13    = spaghetti.rshiftk(instr_12, 1)
 			local instr_14    = spaghetti.rshiftk(instr_12, 2)
+			local instr_25    = spaghetti.rshiftk(inputs.instr_hi, 9)
+			local instr_25i   = instr_25:bxor(1)
+			local instr_26    = spaghetti.rshiftk(inputs.instr_hi, 10)
+			local instr_26i   = instr_26:bxor(1)
 			local instr_30    = spaghetti.rshiftk(inputs.instr_hi, 14)
 			local group_add   = instr_2:bor(instr_12):bor(instr_13):bor(instr_14):bor(instr_5:bor(0x10000000):band(instr_30:bor(0x10000000))):bxor(1)
 			local group_ui    = instr_2
 			local instr_addx  = instr_4:bor(0x10000000):band(group_add:bor(group_ui):bor(0x10000000))
 			local instr_ui    = instr_4:bor(0x10000000):band(              group_ui :bor(0x10000000))
+			local instr_czero = instr_ui:bor(instr_5i):bor(instr_25i):bor(instr_26i)
 			local index = spaghetti.select(group_ui:band(1):zeroable(), 0x10000, instr_12)
 			local ui_lhs_lo, ui_lhs_hi = spaghetti.select(
 				instr_5:band(1):zeroable(),
@@ -144,9 +150,20 @@ return testbed.module(function(params, params_name)
 				res_47_lo, res_03_lo,
 				res_47_hi, res_03_hi
 			)
+			local zero = spaghetti.select(inputs.rhs_hi:bor(inputs.rhs_lo):band(0xFFFF):zeroable(), 1, 3)
+			local res_czero_lo, res_czero_hi = spaghetti.select(
+				instr_12:bxor(zero):band(2):zeroable(),
+				0x10000000, inputs.lhs_lo,
+				0x10000000, inputs.lhs_hi
+			)
+			local res_lo, res_hi = spaghetti.select(
+				instr_czero:band(1):zeroable(),
+				res_07_lo, res_czero_lo,
+				res_07_hi, res_czero_hi
+			)
 			return {
-				res_lo = res_07_lo,
-				res_hi = res_07_hi,
+				res_lo = res_lo,
+				res_hi = res_hi,
 				lt     = adder_outputs.lt,
 				ltu    = adder_outputs.ltu,
 				eq     = bitwise_outputs.eq,
@@ -155,11 +172,19 @@ return testbed.module(function(params, params_name)
 			}
 		end,
 		fuzz_inputs = function()
+			local lhs_lo = math.random(0x0000, 0xFFFF)
+			local lhs_hi = math.random(0x0000, 0xFFFF)
+			local rhs_lo = math.random(0x0000, 0xFFFF)
+			local rhs_hi = math.random(0x0000, 0xFFFF)
+			if math.random(0, 63) == 0 then
+				rhs_lo = 0
+				rhs_hi = 0
+			end
 			return {
-				lhs_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				lhs_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				rhs_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				rhs_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				lhs_lo    = bitx.bor(lhs_lo, 0x10000000),
+				lhs_hi    = bitx.bor(lhs_hi, 0x10000000),
+				rhs_lo    = bitx.bor(rhs_lo, 0x10000000),
+				rhs_hi    = bitx.bor(rhs_hi, 0x10000000),
 				pc_lo     = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				pc_hi     = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				instr_lo  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
@@ -179,10 +204,10 @@ return testbed.module(function(params, params_name)
 			local instr_addi  = bitx.band(inputs.instr_lo, 0x7034) == 0x0010
 			local instr_auipc = bitx.band(inputs.instr_lo, 0x0034) == 0x0014
 			local instr_lui   = bitx.band(inputs.instr_lo, 0x0034) == 0x0034
+			local instr_czero = bitx.band(inputs.instr_hi, 0x0600) == 0x0600 and
+			                    bitx.band(inputs.instr_lo, 0x0020) == 0x0020 and
+			                    not instr_lui
 			local index = bitx.band(bitx.rshift(inputs.instr_lo, 12), 7)
-			if bitx.band(inputs.instr_lo, 0x0004) == 0x0004 then
-				index = 0
-			end
 			local rhs_lo = inputs.rhs_lo
 			local rhs_hi = inputs.rhs_hi
 			if bitx.band(inputs.instr_lo, 0x0060) == 0x0000 then
@@ -242,9 +267,24 @@ return testbed.module(function(params, params_name)
 				[ 6 ] = { lo = bitwise_outputs.or_lo , hi = bitwise_outputs.or_hi  },
 				[ 7 ] = { lo = bitwise_outputs.and_lo, hi = bitwise_outputs.and_hi },
 			}
+			local ui_index = index
+			if bitx.band(inputs.instr_lo, 0x0004) == 0x0004 then
+				ui_index = 0
+			end
+			local res_lo = branches[ui_index].lo
+			local res_hi = branches[ui_index].hi
+			if instr_czero then
+				local zero = bitx.band(inputs.rhs_lo, 0xFFFF) == 0 and
+				             bitx.band(inputs.rhs_hi, 0xFFFF) == 0
+				if bitx.band(index, 2) ~= 0 then
+					zero = not zero
+				end
+				res_lo = zero and 0x10000000 or inputs.lhs_lo
+				res_hi = zero and 0x10000000 or inputs.lhs_hi
+			end
 			return {
-				res_lo = branches[index].lo,
-				res_hi = branches[index].hi,
+				res_lo = res_lo,
+				res_hi = res_hi,
 				lt     = adder_outputs.lt,
 				ltu    = adder_outputs.ltu,
 				eq     = bitwise_outputs.eq,
