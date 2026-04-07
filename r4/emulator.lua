@@ -197,11 +197,14 @@ function emu_context_i:eu_(ix_eu)
 	local mul_failed = false
 	for ix_subeu = 0, sub_eu_count - 1 do repeat
 		local last_subeu = ix_subeu == sub_eu_count - 1
+		local instr = instrs[ix_subeu - defer_shift]
+		if last_subeu then
+			self.mulstate_instr = bitx.bor(instr, 8)
+		end
 		if not self.started then
 			defer(last_subeu)
 			break
 		end
-		local instr = instrs[ix_subeu - defer_shift]
 		local rd    = bitx.band(bitx.rshift(instr,  7), 0x1F)
 		local rs1   = bitx.band(bitx.rshift(instr, 15), 0x1F)
 		local rs2   = bitx.band(bitx.rshift(instr, 20), 0x1F)
@@ -237,7 +240,6 @@ function emu_context_i:eu_(ix_eu)
 						defer(false) -- not the last sub-EU
 						break
 					end
-					self.mulstate_instr = bitx.bor(instr, 8)
 					self.mulstate_value = 0x00000000
 					if self.core_types_[ix_eu] == "m" then
 						rd_value, self.mulstate_value = mul_op(

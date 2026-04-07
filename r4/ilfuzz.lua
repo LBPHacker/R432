@@ -23,12 +23,10 @@ do
 	local random_state = os.time() % 0x100000000
 
 	function random_next()
-		local result = random_state
-		local lo, hi = split32(random_state)
-		local lo_next = lo * 2891336453 % 0x100000000
-		local hi_next = hi * 2891336453 % 0x10000
-		random_state = (hi_next * 0x10000 + lo_next + 1) % 0x100000000
-		return result
+		random_state = bitx.bxor(random_state, bitx.lshift(random_state, 13))
+		random_state = bitx.bxor(random_state, bitx.rshift(random_state, 17))
+		random_state = bitx.bxor(random_state, bitx.lshift(random_state,  5))
+		return random_state
 	end
 
 	function get_random_state()
@@ -169,10 +167,10 @@ local function run(params)
 	local core_types = "miimm"
 	local machine_id = 0xDEAD
 	local save_snap
-	local auto_snap = false
+	local auto_snap = true
 	local always_compare_all = true
 	local auto_unpause = true
-	local load_snap_path -- = "r4ilfuzz.1772968321.state"
+	local load_snap_path -- = "r4ilfuzz.1775588672.state"
 
 	if load_snap_path then
 		auto_snap = false
@@ -653,6 +651,12 @@ local function run(params)
 			text = "Failed: " .. fail_msg
 		else
 			text = ("Fuzzing, %i iterations done..."):format(frames_done)
+		end
+		do
+			local id = sim.partID(sim.adjustCoords(ui.mousePosition()))
+			if id then
+				text = text .. "\n" .. disassembler.disassemble(sim.partProperty(id, "ctype"), 0)
+			end
 		end
 		gfx.drawText(text_x, text_y, text)
 		if pause_asap then
