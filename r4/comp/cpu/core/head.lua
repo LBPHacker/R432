@@ -14,7 +14,7 @@ return testbed.module(function(params)
 	local inputs = {
 		{ name = "pc_lo"           , index = 62, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "pc_hi"           , index = 64, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-		{ name = "defer"           , index = 66, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
+		{ name = "defer"           , index = 66, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000001 },
 		{ name = "lhs_lo_" .. units, index = 85, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "lhs_hi_" .. units, index = 87, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "rhs_lo_" .. units, index = 89, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },

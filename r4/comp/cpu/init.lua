@@ -1489,14 +1489,14 @@ local function build_internal(params)
 			local output = part({ type = pt.BRAY, x = x_process + 3, y = y_process, life = 1 })
 			part({ type = pt.FILT, x = x_process + 4, y = y_process, ctype = 0x10000004 })
 			aray(x_process + 5, y_process, 1, 0, pt.METL, nil, 1)
-			local function spark_source(x_source, ptype)
+			local function spark_source(x_source, ptype, initial_life)
 				solid_spark(x_source, y_process - 1, 0, -1, ptype)
 				dray(x_source - 2, y_process - 2, shutdown_target.x - 1, shutdown_target.y, 2, false)
-				lsns_spark({ type = pt.PSCN, x = x_source - 3, y = y_process - 2, life = 4 }, 0, 1, -1, 2)
+				lsns_spark({ type = pt.PSCN, x = x_source - 3, y = y_process - 2, life = initial_life }, 0, 1, -1, 2)
 			end
 			ldtc(x_process + 14, y_process, output.x, output.y)
-			spark_source(x_process + 19, pt.PSCN)
-			spark_source(x_process + 13, pt.NSCN)
+			spark_source(x_process + 19, pt.PSCN, 3)
+			spark_source(x_process + 13, pt.NSCN, 4)
 		end
 	end
 

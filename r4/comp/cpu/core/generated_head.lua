@@ -7222,7 +7222,7 @@ local function get_parts(storage_remap)
 		{ ctype = 268435456, type = pt.FILT, x = setmetatable({ storage_slot = 62, offset = 11 }, storage_remap_mt), y = 0 },
 		{ ctype = 268435456, type = pt.FILT, x = setmetatable({ storage_slot = 63, offset = 11 }, storage_remap_mt), y = 0 },
 		{ ctype = 268435456, type = pt.FILT, x = setmetatable({ storage_slot = 64, offset = 11 }, storage_remap_mt), y = 0 },
-		{ ctype = 268435456, type = pt.FILT, x = setmetatable({ storage_slot = 65, offset = 11 }, storage_remap_mt), y = 0 },
+		{ ctype = 268435457, type = pt.FILT, x = setmetatable({ storage_slot = 65, offset = 11 }, storage_remap_mt), y = 0 },
 		{ ctype = 268435456, type = pt.FILT, x = setmetatable({ storage_slot = 66, offset = 11 }, storage_remap_mt), y = 0 },
 		{ ctype = -268378451, type = pt.FILT, x = setmetatable({ storage_slot = 67, offset = 11 }, storage_remap_mt), y = 0 },
 		{ ctype = 268435456, type = pt.FILT, x = setmetatable({ storage_slot = 68, offset = 11 }, storage_remap_mt), y = 0 },
