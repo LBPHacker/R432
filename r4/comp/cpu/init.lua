@@ -34,6 +34,29 @@ local function build_internal(params, params_name)
 	if params.start_pc ~= nil then
 		check.integer_range(("%s.start_pc"):format(params_name), params.start_pc, 0x00000000, 0xFFFFFFFF)
 	end
+	local memory_contents
+	if type(params.memory) == "string" then
+		memory_contents = {}
+		local file, err = io.open(params.memory, "rb")
+		if not file then
+			misc.user_error("failed to open %s.memory: %s", params_name, err)
+		end
+		local data = assert(file:read("*a"))
+		file:close()
+		if #data % 4 ~= 0 then
+			misc.user_error("%s.memory must point to a file with a size that is a multiple of 4", params_name)
+		end
+		for i = 0, #data / 4 - 1 do
+			local value = 0
+			for j = 0, 3 do
+				value = value + data:byte(i * 4 + j + 1) * 2 ^ (8 * j)
+			end
+			memory_contents[i] = value
+		end
+	elseif params.memory ~= nil then
+		check.table(("%s.memory"):format(params_name), params.memory)
+		memory_contents = params.memory
+	end
 	local core_types = {}
 	for ix_eu = 0, eus - 1 do
 		core_types[ix_eu] = core_types_str:sub(ix_eu + 1, ix_eu + 1)
@@ -106,7 +129,7 @@ local function build_internal(params, params_name)
 					bitx.band(bitx.lshift(x, 1), 0x7E)
 				)
 				local index = y * width + x
-				local value = params.memory and params.memory[index] or bitx.bor(0x00013, bitx.lshift(bitx.band(index, 0xFFF), 20))
+				local value = memory_contents and memory_contents[index] or bitx.bor(0x00013, bitx.lshift(bitx.band(index, 0xFFF), 20))
 				part(memory32({ x = x_body + scrambled, y = y_body + (height - y - 1) }, value))
 			end
 			local x_dmnd = x_body + width
@@ -1336,6 +1359,19 @@ local function build_internal(params, params_name)
 			local x_core = x_body + 25
 			local y_core = y_ix_eu(ix_eu) - 9
 			plot.merge_parts(x_core, y_core, parts, head.get_parts(), {})
+			if ix_eu == 0 then
+				for _, part in ipairs(parts) do
+					if part.x == x_core + 72 and part.y == y_core then
+						part.ctype = bitx.bor(0x10000000, bitx.band(            start_pc     , 0xFFFF))
+					end
+					if part.x == x_core + 74 and part.y == y_core then
+						part.ctype = bitx.bor(0x10000000, bitx.band(bitx.rshift(start_pc, 16), 0xFFFF))
+					end
+					if part.x == x_core + 76 and part.y == y_core then
+						part.ctype = params.auto_start and 0x10000000 or 0x10000001
+					end
+				end
+			end
 		end
 	end
 	do -- tail
@@ -1446,7 +1482,7 @@ local function build_internal(params, params_name)
 		dray(x_reset - 1, y_reset, set_pc_lo.x, set_pc_lo.y, 1, false)
 		dray(x_reset + 3, y_reset, set_pc_hi.x, set_pc_hi.y, 1, false)
 
-		local function button(x_button, ptype, dcolour, set_start, reset, auto_press)
+		local function button(x_button, ptype, dcolour, set_start, reset)
 			for x = 0, 7 do
 				for y = 0, 3 do
 					if not (y == 0 and (x == 0 or x == 7)) then
@@ -1460,11 +1496,6 @@ local function build_internal(params, params_name)
 				part({ type = pt.PSCN, x = x_button + 6, y = y_buttons - 1 })
 				part({ type = pt.METL, x = x_button + 5, y = y_buttons - 1 })
 				local start = part({ type = pt.NSCN, x = x_button + 4, y = y_buttons - 1 })
-				if auto_press then
-					start.ctype = start.type
-					start.type = pt.SPRK
-					start.life = 4
-				end
 			end
 			if reset then
 				part({ type = pt.FILT, x = x_button - 1, y = y_buttons - 1, ctype = 0x10000004 })
@@ -1479,7 +1510,7 @@ local function build_internal(params, params_name)
 		end
 		button(x_buttons     , pt.INST, 0xFF7F7F7F, nil, true)
 		button(x_buttons + 11, pt.INST, 0xFF7F7F7F, 0x10000002)
-		button(x_buttons + 22, pt.INST, 0xFF7F7F7F, 0x10000001, nil, params.auto_start)
+		button(x_buttons + 22, pt.INST, 0xFF7F7F7F, 0x10000001)
 		local shutdown_target = button(x_buttons + 37, pt.LCRY, 0xFF00FF00)
 
 		local x_shutdown = x_buttons - 25
