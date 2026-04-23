@@ -1,6 +1,7 @@
 local spaghetti   = require("spaghetti")
 local bitx        = require("spaghetti.bitx")
 local testbed     = require("spaghetti.testbed")
+local common      = require("r4.comp.cpu.common")
 local unit        = require("r4.comp.cpu.core.unit")
 local instr_split = require("r4.comp.cpu.core.instr_split").instantiate()
 local address     = require("r4.comp.cpu.core.address")    .instantiate()
@@ -12,12 +13,18 @@ return testbed.module(function(params)
 	return {
 		tag = "core.head",
 		opt_params = {
-			thread_count  = 1,
 			temp_initial  = 1,
 			temp_final    = 0.5,
 			temp_loss     = 1e-6,
-			round_length  = 10000,
 			seed          = { 0x56789ABC, 0x87654324 },
+			work_slot_overhead_penalty = 30,
+			thread_count        = 8,
+			round_length        = 10000,
+			rounds_per_exchange = 10,
+			schedule = {
+				durations    = { 1000000, 2000000, 6000000,        },
+				temperatures = {      10,       2,       1,    0.5 },
+			},
 		},
 		stacks        = 2,
 		storage_slots = 94,
@@ -54,21 +61,11 @@ return testbed.module(function(params)
 			local regs_outputs = regs.component({
 				instr = inputs.instr,
 			})
-			local instr_2    = spaghetti.rshiftk(instr_split_outputs.instr_lo, 2)
-			local instr_2i   = instr_2:bxor(1)
-			local instr_3    = spaghetti.rshiftk(instr_split_outputs.instr_lo, 3)
-			local instr_3i   = instr_3:bxor(1)
-			local instr_4    = spaghetti.rshiftk(instr_split_outputs.instr_lo, 4)
-			local instr_4i   = instr_4:bxor(1)
-			local instr_5    = spaghetti.rshiftk(instr_split_outputs.instr_lo, 5)
-			local instr_5i   = instr_5:bxor(1)
-			local instr_6    = spaghetti.rshiftk(instr_split_outputs.instr_lo, 6)
-			local instr_6i   = instr_6:bxor(1)
-			local instr_hlt  = instr_6i:bor(instr_4i)
-			local instr_jal  = instr_6i:bor(instr_4):bor(instr_3i)
-			local instr_jalr = instr_6i:bor(instr_4):bor(instr_3):bor(instr_2i)
-			local instr_l    = instr_6:bor(instr_5):bor(instr_4):bor(instr_2)
-			local instr_s    = instr_6:bor(instr_5i):bor(instr_4)
+			local instr_hlt  = common.match_instr(instr_split_outputs.instr_lo, 0x0050, 0x0050)
+			local instr_jal  = common.match_instr(instr_split_outputs.instr_lo, 0x0058, 0x0048)
+			local instr_jalr = common.match_instr(instr_split_outputs.instr_lo, 0x005C, 0x0044)
+			local instr_l    = common.match_instr(instr_split_outputs.instr_lo, 0x0074, 0x0000)
+			local instr_s    = common.match_instr(instr_split_outputs.instr_lo, 0x0070, 0x0020)
 			local unit_outputs = unit_last.component({
 				lhs_lo   = inputs.lhs_lo,
 				lhs_hi   = inputs.lhs_hi,

@@ -47,13 +47,18 @@ return testbed.module(function(params)
 	return {
 		tag = "core.head",
 		opt_params = {
-			thread_count  = 1,
 			temp_initial  = 1,
 			temp_final    = 0.5,
 			temp_loss     = 1e-6,
-			round_length  = 10000,
-			seed          = { 0x56789ABC, 0x87654329 },
+			seed          = { 0x56789ABC, 0x8765432A },
 			work_slot_overhead_penalty = 30,
+			thread_count        = 8,
+			round_length        = 10000,
+			rounds_per_exchange = 10,
+			schedule = {
+				durations    = { 1000000, 2000000, 6000000,        },
+				temperatures = {      10,       2,       1,    0.5 },
+			},
 		},
 		stacks        = 5,
 		storage_slots = 98,

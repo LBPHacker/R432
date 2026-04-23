@@ -2,6 +2,7 @@ local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
 local check     = require("spaghetti.check")
+local common    = require("r4.comp.cpu.common")
 local adder     = require("r4.comp.cpu.core.alu.adder")  .instantiate()
 local bitwise   = require("r4.comp.cpu.core.alu.bitwise").instantiate()
 local shifter   = require("r4.comp.cpu.core.alu.shifter").instantiate()
@@ -45,27 +46,23 @@ return testbed.module(function(params, params_name)
 			has_jal and { name = "jal_hi", index = 13, keepalive = 0x10000000, payload = 0x0000FFFF } or nil,
 		},
 		func = function(inputs)
-			local instr_2     = spaghetti.rshiftk(inputs.instr_lo, 2)
-			local instr_2i    = instr_2:bxor(1)
-			local instr_4     = spaghetti.rshiftk(inputs.instr_lo, 4)
-			local instr_5     = spaghetti.rshiftk(inputs.instr_lo, 5)
-			local instr_5i    = instr_5:bxor(1)
-			local instr_12    = spaghetti.rshiftk(inputs.instr_lo, 12)
-			local instr_13    = spaghetti.rshiftk(instr_12, 1)
-			local instr_14    = spaghetti.rshiftk(instr_12, 2)
-			local instr_25    = spaghetti.rshiftk(inputs.instr_hi, 9)
-			local instr_25i   = instr_25:bxor(1)
-			local instr_26    = spaghetti.rshiftk(inputs.instr_hi, 10)
-			local instr_26i   = instr_26:bxor(1)
-			local instr_30    = spaghetti.rshiftk(inputs.instr_hi, 14)
-			local group_add   = instr_2:bor(instr_12):bor(instr_13):bor(instr_14):bor(instr_5:bor(0x10000000):band(instr_30:bor(0x10000000))):bxor(1)
-			local group_ui    = instr_2
-			local instr_addx  = instr_4:bor(0x10000000):band(group_add:bor(group_ui):bor(0x10000000))
-			local instr_ui    = instr_4:bor(0x10000000):band(              group_ui :bor(0x10000000))
-			local instr_czero = instr_ui:bor(instr_5i):bor(instr_25i):bor(instr_26i)
-			local index = spaghetti.select(group_ui:band(1):zeroable(), 0x10000, instr_12)
+			local instr_addx = common.match_instr(inputs.instr_lo, 0x0010, 0x0000):bor(0x10000000)
+				:band(
+					          common.match_instr(inputs.instr_lo, 0x7004, 0x0000)
+					:bor(     common.match_instr(inputs.instr_lo, 0x0020, 0x0020)
+					     :bor(common.match_instr(inputs.instr_hi, 0x4000, 0x4000)):bxor(1)):bxor(1)
+					:bor(     common.match_instr(inputs.instr_lo, 0x0004, 0x0000)):bor(0x10000000)
+				)
+			local instr_czero = common.match_instr(inputs.instr_lo, 0x0014, 0x0014):bxor(1)
+			               :bor(common.match_instr(inputs.instr_lo, 0x0020, 0x0020))
+			               :bor(common.match_instr(inputs.instr_hi, 0x0600, 0x0600))
+			local index = spaghetti.select(
+				common.match_instr(inputs.instr_lo, 0x0004, 0x0000):band(1):zeroable(),
+				0x10000,
+				common.match_instr(inputs.instr_lo, 0x1000, 0x0000)
+			)
 			local ui_lhs_lo, ui_lhs_hi = spaghetti.select(
-				instr_5:band(1):zeroable(),
+				common.match_instr(inputs.instr_lo, 0x0020, 0x0000):band(1):zeroable(),
 				0x10000000, inputs.pc_lo,
 				0x10000000, inputs.pc_hi
 			)
@@ -78,18 +75,14 @@ return testbed.module(function(params, params_name)
 				inputs.rhs_hi, imm12s_outputs.imm12s_hi
 			)
 			local adder_lhs_lo, adder_lhs_hi, adder_rhs_lo, adder_rhs_hi = spaghetti.select(
-				instr_ui:band(1):zeroable(),
-				ui_lhs_lo                   , inputs.lhs_lo,
-				ui_lhs_hi                   , inputs.lhs_hi,
-				inputs.instr_lo:bsub(0x0FFF), rhs_lo,
-				inputs.instr_hi             , rhs_hi
+				common.match_instr(inputs.instr_lo, 0x0014, 0x0014):band(1):zeroable(),
+				inputs.lhs_lo, ui_lhs_lo,
+				inputs.lhs_hi, ui_lhs_hi,
+				rhs_lo       , inputs.instr_lo:bsub(0x0FFF),
+				rhs_hi       , inputs.instr_hi
 			)
 			if has_jal then
-				local instr_3   = spaghetti.rshiftk(inputs.instr_lo, 3)
-				local instr_3i  = instr_3:bxor(1)
-				local instr_6   = spaghetti.rshiftk(inputs.instr_lo, 6)
-				local instr_6i  = instr_6:bxor(1)
-				local instr_jal = instr_3i:bor(instr_6i)
+				local instr_jal = common.match_instr(inputs.instr_lo, 0x0048, 0x0048)
 				adder_lhs_lo, adder_lhs_hi, adder_rhs_lo, adder_rhs_hi = spaghetti.select(
 					instr_jal:band(1):zeroable(),
 					adder_lhs_lo, inputs.pc_lo,
@@ -152,7 +145,7 @@ return testbed.module(function(params, params_name)
 			)
 			local zero = spaghetti.select(inputs.rhs_hi:bor(inputs.rhs_lo):band(0xFFFF):zeroable(), 1, 3)
 			local res_czero_lo, res_czero_hi = spaghetti.select(
-				instr_12:bxor(zero):band(2):zeroable(),
+				common.match_instr(inputs.instr_lo, 0x1000, 0x0000):bxor(zero):band(2):zeroable(),
 				0x10000000, inputs.lhs_lo,
 				0x10000000, inputs.lhs_hi
 			)

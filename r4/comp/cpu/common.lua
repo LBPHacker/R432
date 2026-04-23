@@ -45,7 +45,36 @@ local function incr16(expr, ignore2lsb, decr)
 	return expr:bxor(flip:never_zero():bsub(0x10000000):never_zero())
 end
 
+local function cond_shift(b, k)
+	if k ~= 0 then
+		b = spaghetti.rshiftk(b, k)
+	end
+	return b
+end
+
+local function get_bit(b, i)
+	b = cond_shift(b, bitx.band(i, 0x10))
+	b = cond_shift(b, bitx.band(i, 0x0C))
+	b = cond_shift(b, bitx.band(i, 0x03))
+	return b
+end
+
+local function match_instr(expr, mask, value)
+	local conjunctive
+	for i = 0, 29 do
+		if bitx.band(mask, bitx.lshift(1, i)) ~= 0 then
+			local b = get_bit(expr, i)
+			if bitx.band(value, bitx.lshift(1, i))~= 0 then
+				b = b:bxor(1)
+			end
+			conjunctive = conjunctive and conjunctive:bor(b) or b
+		end
+	end
+	return conjunctive
+end
+
 return {
-	ks16   = ks16,
-	incr16 = incr16,
+	ks16        = ks16,
+	incr16      = incr16,
+	match_instr = match_instr,
 }

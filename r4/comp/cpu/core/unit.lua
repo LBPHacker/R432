@@ -2,6 +2,7 @@ local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
 local check     = require("spaghetti.check")
+local common    = require("r4.comp.cpu.common")
 local alu       = require("r4.comp.cpu.core.alu")
 local cbranch   = require("r4.comp.cpu.core.cbranch").instantiate()
 local incr_pc   = require("r4.comp.cpu.core.incr_pc").instantiate()
@@ -70,23 +71,12 @@ return testbed.module(function(params, params_name)
 		inputs = inputs,
 		outputs = outputs,
 		func = function(inputs)
-			local instr_2   = spaghetti.rshiftk(inputs.instr_lo, 2)
-			local instr_3   = spaghetti.rshiftk(inputs.instr_lo, 3)
-			local instr_4   = spaghetti.rshiftk(inputs.instr_lo, 4)
-			local instr_4i  = instr_4:bxor(1)
-			local instr_5   = spaghetti.rshiftk(inputs.instr_lo, 5)
-			local instr_5i  = instr_5:bxor(1)
-			local instr_6   = spaghetti.rshiftk(inputs.instr_lo, 6)
-			local instr_6i  = instr_6:bxor(1)
-			local instr_25  = spaghetti.rshiftk(inputs.instr_hi, 9)
-			local instr_25i = instr_25:bxor(1)
-			local instr_26  = spaghetti.rshiftk(inputs.instr_hi, 10)
-			local instr_output = instr_4i:bor(instr_6)
-			local instr_mem  = instr_4:bor(instr_6)
-			local instr_mul  = instr_2:bor(instr_4i):bor(instr_5i):bor(instr_6):bor(instr_25i):bor(instr_26)
-			local instr_hltj = instr_2:bor(instr_3):bor(instr_4):bxor(1):bor(instr_6i)
-			local instr_j    = instr_2:bor(instr_3):bxor(1):bor(instr_4):bor(instr_6i)
-			local instr_l    = instr_6:bor(instr_5):bor(instr_4):bor(instr_2)
+			local instr_mem    = common.match_instr(inputs.instr_lo, 0x0050, 0x0000)
+			local instr_mul    = common.match_instr(inputs.instr_lo, 0x0074, 0x0030):bor(common.match_instr(inputs.instr_hi, 0x0600, 0x0200))
+			local instr_l      = common.match_instr(inputs.instr_lo, 0x0074, 0x0000)
+			local instr_output = common.match_instr(inputs.instr_lo, 0x0050, 0x0010)
+			local instr_hltj   = common.match_instr(inputs.instr_lo, 0x001C, 0x0000):bxor(1):bor(common.match_instr(inputs.instr_lo, 0x0040, 0x0040))
+			local instr_j      = common.match_instr(inputs.instr_lo, 0x000C, 0x0000):bxor(1):bor(common.match_instr(inputs.instr_lo, 0x0050, 0x0040))
 			local jaloff_lo, jaloff_hi
 			if has_jal then
 				local stretch_0 = inputs.instr_lo:band(0x1000F000)
@@ -144,9 +134,7 @@ return testbed.module(function(params, params_name)
 				end
 				local lo32
 				do
-					local instr_12 = spaghetti.rshiftk(inputs.instr_lo, 12)
-					local instr_13 = spaghetti.rshiftk(inputs.instr_lo, 13)
-					lo32 = instr_12:bor(instr_13) -- inverted
+					lo32 = common.match_instr(inputs.instr_lo, 0x3000, 0x0000) -- inverted
 				end
 				local rs1_rd_diff, rs2_rd_diff
 				do

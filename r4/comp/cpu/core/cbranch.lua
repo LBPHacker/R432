@@ -1,6 +1,7 @@
 local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
 local testbed   = require("spaghetti.testbed")
+local util      = require("r4.comp.cpu.common")
 
 return testbed.module(function(params)
 	return {
@@ -25,24 +26,19 @@ return testbed.module(function(params)
 			{ name = "taken", index = 1, keepalive = 0x10000000, payload = 0x00000001 },
 		},
 		func = function(inputs)
-			local instr_2  = spaghetti.rshiftk(inputs.instr_lo, 2)
-			local instr_3  = spaghetti.rshiftk(inputs.instr_lo, 3)
-			local instr_4  = spaghetti.rshiftk(inputs.instr_lo, 4)
-			local instr_6  = spaghetti.rshiftk(inputs.instr_lo, 6)
-			local instr_6i = instr_6:bxor(1)
-			local instr_12 = spaghetti.rshiftk(inputs.instr_lo, 12)
-			local instr_13 = spaghetti.rshiftk(instr_12, 1)
-			local instr_14 = spaghetti.rshiftk(instr_12, 2)
-			local instr_branch = instr_2:bor(instr_3):bor(instr_4):bor(instr_6i)
+			local instr_branch = util.match_instr(inputs.instr_lo, 0x005C, 0x0040)
+			local instr_invert = util.match_instr(inputs.instr_lo, 0x1000, 0x0000)
+			local instr_lt     = util.match_instr(inputs.instr_lo, 0x2000, 0x0000)
+			local instr_eq     = util.match_instr(inputs.instr_lo, 0x4000, 0x0000)
 			local holds = spaghetti.select(
-				instr_14:band(1):zeroable(),
+				instr_eq:band(1):zeroable(),
 				spaghetti.select(
-					instr_13:band(1):zeroable(),
+					instr_lt:band(1):zeroable(),
 					inputs.ltu,
 					inputs.lt
 				),
 				inputs.eq
-			):bxor(instr_12)
+			):bxor(instr_invert)
 			return {
 				taken = holds:bsub(instr_branch):bor(0x10000000):band(0x10000001)
 			}

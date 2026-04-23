@@ -8,12 +8,17 @@ return testbed.module(function(params)
 	return {
 		tag = "core.alu.multiplier",
 		opt_params = {
-			thread_count  = 1,
 			temp_initial  = 1,
 			temp_final    = 0.5,
 			temp_loss     = 1e-6,
-			round_length  = 10000,
 			seed          = { 0x56789ABC, 0x87654321 },
+			thread_count        = 8,
+			round_length        = 10000,
+			rounds_per_exchange = 10,
+			schedule = {
+				durations    = { 1000000, 2000000, 6000000,        },
+				temperatures = {      10,       2,       1,    0.5 },
+			},
 		},
 		stacks        = 4,
 		storage_slots = 72,
@@ -36,15 +41,11 @@ return testbed.module(function(params)
 			{ name = "res_1"         , index = 72, keepalive = 0x10000000, payload = 0x0000FFFF },
 		},
 		func = function(inputs)
-			local instr_12   = inputs.control
-			local instr_12i  = instr_12:bxor(1)
-			local instr_13   = spaghetti.rshiftk(inputs.control, 1)
-			local instr_13i  = instr_13:bxor(1)
-			local lhs_signed = instr_13i:bor(instr_12i) -- normal
-			local one_signed = instr_13i:bor(instr_12) -- inverted
-			local two_signed = instr_13 -- inverted
-			local rhs_signed = instr_13 -- inverted
-			local any_signed = lhs_signed -- normal
+			local lhs_signed = cpu_common.match_instr(inputs.control, 0x3, 0x3) -- normal
+			local one_signed = cpu_common.match_instr(inputs.control, 0x3, 0x2) -- inverted
+			local two_signed = cpu_common.match_instr(inputs.control, 0x2, 0x0) -- inverted
+			local rhs_signed = cpu_common.match_instr(inputs.control, 0x2, 0x0) -- inverted
+			local any_signed = cpu_common.match_instr(inputs.control, 0x3, 0x3) -- normal
 
 			local rhs_lo_ka = spaghetti.lshiftk(spaghetti.lshiftk(inputs.rhs_lo, 1):bor(1), 1):bor(1)
 			local rhs_hi_ka = spaghetti.lshiftk(spaghetti.lshiftk(inputs.rhs_hi, 1):bor(1), 1)
