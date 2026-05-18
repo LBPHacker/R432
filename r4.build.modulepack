@@ -19,7 +19,3 @@ r4.comp.cpu.common
 r4.comp.cpu.memory_rw
 r4.comp.cpu.reg_r
 r4.comp.cpu.bus_control
-r4.comp.r3_bus.top
-r4.comp.r3_bus.stack_high
-r4.comp.r3_bus.bottom
-r4.comp.r3_bus.unstack_high

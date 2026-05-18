@@ -2,6 +2,8 @@ local bitx  = require("spaghetti.bitx")
 local check = require("spaghetti.check")
 local misc  = require("spaghetti.misc")
 
+local address_max = 0xFFFFFFFF
+
 local function lowhigh(name, value_parent, low, high)
 	local specified = 0
 	if value_parent[low] ~= nil then
@@ -22,7 +24,7 @@ local function lowhigh(name, value_parent, low, high)
 end
 
 local function base_address(name, value, mask)
-	check.integer_range(name, value, 0x000000, 0xFFFFFF)
+	check.integer_range(name, value, 0, address_max)
 	if bitx.band(value, mask) ~= value then
 		misc.user_error("%s must not have bits set outside %06X", name, mask)
 	end
@@ -31,4 +33,5 @@ end
 return {
 	lowhigh      = lowhigh,
 	base_address = base_address,
+	address_max  = address_max,
 }

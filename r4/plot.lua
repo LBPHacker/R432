@@ -1,15 +1,15 @@
 local plot            = require("spaghetti.plot")
 local check           = require("spaghetti.check")
 local misc            = require("spaghetti.misc")
-local bus_termination = require("r4.comp.bus_termination")
+local bus_termination = require("r4.comp.bus.termination")
 local r4_check        = require("r4.check")
 
 local pt = plot.pt
 local audited_pairs = pairs
 
 local components_by_type = {
-	cpu       = require("r4.comp.cpu"),
-	r3_bus = require("r4.comp.r3_bus"),
+	cpu    = require("r4.comp.cpu"),
+	r3_bus = require("r4.comp.bus.r3_adapter"),
 }
 local valid_types = {}
 for key in audited_pairs(components_by_type) do
@@ -21,7 +21,7 @@ local function tagged_print(err, message)
 end
 
 local function place_components(x_top, y_top, components_name, components, debug_stacks, debug_areas)
-	local memory_mask = 0xFF8000
+	local memory_mask = 0xFFFF8000
 	local name_to_component_index = {}
 	local buses = {}
 	for ix_component, component in ipairs(components) do
@@ -34,7 +34,7 @@ local function place_components(x_top, y_top, components_name, components, debug
 		end
 		name_to_component_index[component.name] = ix_component
 		if component.type == "cpu" then
-			check.integer_range(component_name .. ".memory_base", component.memory_base, 0x000000, 0xFFFFFF)
+			check.integer_range(component_name .. ".memory_base", component.memory_base, 0, r4_check.address_max)
 			r4_check.base_address(component_name .. ".memory_base", component.memory_base, memory_mask)
 			component.memory_mask = memory_mask
 			check.string(component_name .. ".cores", component.cores)
@@ -198,7 +198,7 @@ local function place_components(x_top, y_top, components_name, components, debug
 					memory_base  = component.memory_base,
 				})
 				local bus_termination_x = last_x
-				local bus_termination_w = 12
+				local bus_termination_w = 18
 				local bus_termination_shift = 0
 				if needs_termination then
 					if #bus.through_areas > 0 then

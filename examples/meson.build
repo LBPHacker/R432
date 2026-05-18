@@ -28,6 +28,7 @@ objcopy = find_program('objcopy')
 foreach example : [
 	'Echo',
 	'Primes',
+	'HiAddrTest',
 ]
 	custom_target(
 		'@0@.bin'.format(example),
