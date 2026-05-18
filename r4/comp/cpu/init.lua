@@ -1379,9 +1379,6 @@ local function build_internal(params, params_name)
 					if part.x == x_core + 74 and part.y == y_core then
 						part.ctype = bitx.bor(0x10000000, bitx.band(bitx.rshift(start_pc, 16), 0xFFFF))
 					end
-					if part.x == x_core + 76 and part.y == y_core then
-						part.ctype = params.auto_start and 0x10000000 or 0x10000001
-					end
 				end
 			end
 		end
@@ -1475,7 +1472,7 @@ local function build_internal(params, params_name)
 	do -- buttons
 		local x_buttons = x_body + 50
 		local y_buttons = y_ix_eu(eus - 1) + 10
-		local start = part({ type = pt.FILT, x = x_buttons + 34, y = y_buttons - 1, ctype = 0x10000000 })
+		local start = part({ type = pt.FILT, x = x_buttons + 34, y = y_buttons - 1, ctype = params.auto_start and 0x10000001 or 0x10000000 })
 		part({ type = pt.LDTC, x = x_buttons + 35, y = y_buttons     })
 		part({ type = pt.FILT, x = x_buttons + 36, y = y_buttons + 1, ctype = 0x10000000 })
 		dray(start.x, start.y + 1, start.x, start.y - 14, 1, pt.PSCN)
