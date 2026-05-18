@@ -8,8 +8,9 @@ local pt = plot.pt
 local audited_pairs = pairs
 
 local components_by_type = {
-	cpu    = require("r4.comp.cpu"),
-	r3_bus = require("r4.comp.bus.r3_adapter"),
+	cpu      = require("r4.comp.cpu"),
+	r3_bus   = require("r4.comp.bus.r3_adapter"),
+	terminal = require("r4.comp.terminal"),
 }
 local valid_types = {}
 for key in audited_pairs(components_by_type) do
@@ -162,10 +163,12 @@ local function place_components(x_top, y_top, components_name, components, debug
 			local last_empty = false
 			for ix_bus, bus in ipairs(component_buses) do
 				local bus_parts = {}
+				local ucontext = plot.common_structures(bus_parts, debug_stacks and true or false)
+				local part = ucontext.part
 				local function add_section(x_from, x_to, index, shift)
 					for x = x_from, x_to + shift do
 						for y = bus.y, bus.y + 4 do
-							table.insert(bus_parts, { type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF })
+							part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF })
 						end
 					end
 					add_area({
@@ -235,10 +238,10 @@ local function place_components(x_top, y_top, components_name, components, debug
 				err = ("area %s has negative dimensions"):format(area.name)
 				break
 			end
-			if area.x          <  sim.CELL            or
-			   area.y          <  sim.CELL            or
-			   area.x + area.w >= sim.XRES - sim.CELL or
-			   area.y + area.h >= sim.YRES - sim.CELL then
+			if area.x          < sim.CELL            or
+			   area.y          < sim.CELL            or
+			   area.x + area.w > sim.XRES - sim.CELL or
+			   area.y + area.h > sim.YRES - sim.CELL then
 				err = ("area %s is outside simulation bounds"):format(area.name)
 				break
 			end

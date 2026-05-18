@@ -19,3 +19,7 @@ r4.comp.cpu.common
 r4.comp.cpu.memory_rw
 r4.comp.cpu.reg_r
 r4.comp.cpu.bus_control
+r4.comp.terminal.core.screen
+r4.comp.terminal.core.keyboard
+r4.comp.stack_31_1
+r4.comp.common

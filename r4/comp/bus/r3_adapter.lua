@@ -353,28 +353,7 @@ local function build(params, params_name, component)
 		cray(output.x, 19, output.x, output.y, pt.SPRK, 1, pt.PSCN)
 	end
 
-	for x = -1, width - 2 do
-		part({ type = pt.DMND, x = x, y = -2        , unstack = true })
-		part({ type = pt.DMND, x = x, y = -1        , unstack = true })
-		part({ type = pt.DMND, x = x, y = height - 4, unstack = true })
-		part({ type = pt.DMND, x = x, y = height - 3, unstack = true })
-	end
-	for y = -1, height - 4 do
-		part({ type = pt.DMND, x = width - 2, y = y, unstack = true })
-		part({ type = pt.DMND, x = width - 1, y = y, unstack = true })
-		part({ type = pt.DMND, x = -2       , y = y, unstack = true })
-		part({ type = pt.DMND, x = -1       , y = y, unstack = true })
-	end
-
-	for _, part in ipairs(parts) do
-		part.dcolour = 0xFF007F7F
-		if part.type == pt.DMND then
-			part.dcolour = 0xFFFFFFFF
-		end
-		if part.type == pt.FILT then
-			part.dcolour = 0xFF00FFFF
-		end
-	end
+	ucontext.frame(-1, -1, width - 2, height - 4, -1, 1, 0xFF00FFFF)
 
 	local xoff
 	if params.x.which == "left" then

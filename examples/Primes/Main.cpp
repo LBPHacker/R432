@@ -6,7 +6,7 @@ static void PrintOne(const char *ch)
 {
 	for (auto *p = ch; *p; ++p)
 	{
-		r3Term.Scrollprint(R3Term::simpleTerminal, *p);
+		r4Term.Scrollprint(R4Term::simpleTerminal, *p);
 	}
 }
 
@@ -17,7 +17,7 @@ static void PrintOne(uint32_t number)
 		seenNonzero |= part;
 		if (seenNonzero)
 		{
-			r3Term.Scrollprint(R3Term::simpleTerminal, char(part + '0'));
+			r4Term.Scrollprint(R4Term::simpleTerminal, char(part + '0'));
 		}
 	};
 	auto print2 = [&](uint32_t part) {
@@ -34,7 +34,7 @@ static void PrintOne(uint32_t number)
 	print4(lo8 % 10000U);
 	if (!seenNonzero)
 	{
-		r3Term.Scrollprint(R3Term::simpleTerminal, '0');
+		r4Term.Scrollprint(R4Term::simpleTerminal, '0');
 	}
 }
 
@@ -46,16 +46,15 @@ static void Print(Args &&...args)
 
 void Main()
 {
-	r3Term.ResetKeyboard();
-	r3Term.hrange = R3Term::MakeRange(0, 11);
-	r3Term.vrange = R3Term::MakeRange(0, 7);
-	r3Term.cursor = R3Term::MakeCursorPosition(0, 0);
-	r3Term.nlchar = '\n';
-	r3Term.colour = R3Term::MakeColour(0, 15);
-	r3Term.scrollmask = 0xFFFFFFFF;
+	r4Term.hrange = R4Term::MakeRange(0, 11);
+	r4Term.vrange = R4Term::MakeRange(0, 7);
+	r4Term.cursor = R4Term::MakeCursorPosition(0, 0);
+	r4Term.nlchar = '\n';
+	r4Term.colour = R4Term::MakeColour(0, 15);
+	r4Term.scrollmask = 0xFFFFFFFF;
 	for (uint32_t i = 0; i < 8; ++i)
 	{
-		r3Term.Scrollprint(R3Term::enableScrollmask | R3Term::rowOriented, ' ');
+		r4Term.Scrollprint(R4Term::enableScrollmask, ' ');
 	}
 
 	uint32_t number = 2;

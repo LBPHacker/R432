@@ -9,3 +9,10 @@ r4.comp.cpu.core.generated_tail
 r4.comp.cpu.core.alu.generated_multiplier
 r4.comp.bus.termination
 r4.comp.bus.r3_adapter
+r4.comp.bus.write_tap
+r4.comp.bus.read_tap
+r4.comp.terminal
+r4.comp.terminal.font
+r4.comp.terminal.extra_keys
+r4.comp.terminal.core.generated_screen
+r4.comp.terminal.core.generated_keyboard

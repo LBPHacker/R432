@@ -1,5 +1,6 @@
 local spaghetti = require("spaghetti")
 local bitx      = require("spaghetti.bitx")
+local common    = require("r4.comp.common")
 
 local function ks16(lhs, rhs, sub_mask)
 	lhs:assert(0x10000000, 0x0000FFFF)
@@ -28,21 +29,6 @@ local function ks16(lhs, rhs, sub_mask)
 	generate:assert(0x30000000, 0x0000FFFF)
 	propagate:assert(0x20000000, 0x0000FFFF)
 	return generate, propagate, onesums
-end
-
-local function incr16(expr, ignore2lsb, decr)
-	local inv = expr
-	if not decr then
-		inv = inv:bxor(0x1FFFF)
-	end
-	if ignore2lsb then
-		inv = inv:bsub(3)
-	end
-	local flip = spaghetti.constant(0x3FFFFFFE):lshift(inv):never_zero():bxor(0x1FFFF)
-	if ignore2lsb then
-		flip = flip:bxor(3)
-	end
-	return expr:bxor(flip:never_zero():bsub(0x10000000):never_zero())
 end
 
 local function cond_shift(b, k)
@@ -75,6 +61,6 @@ end
 
 return {
 	ks16        = ks16,
-	incr16      = incr16,
+	incr16      = common.incr16,
 	match_instr = match_instr,
 }

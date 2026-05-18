@@ -24,3 +24,5 @@ generate "r4.comp.cpu.reg_r"               r4/comp/cpu/reg_r/generated.lua
 generate "r4.comp.cpu.core.head"           r4/comp/cpu/core/generated_head.lua
 generate "r4.comp.cpu.core.tail"           r4/comp/cpu/core/generated_tail.lua
 generate "r4.comp.cpu.core.alu.multiplier" r4/comp/cpu/core/alu/generated_multiplier.lua
+generate "r4.comp.terminal.core.screen"    r4/comp/terminal/core/generated_screen.lua
+generate "r4.comp.terminal.core.keyboard"  r4/comp/terminal/core/generated_keyboard.lua

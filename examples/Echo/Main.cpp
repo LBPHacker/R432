@@ -3,20 +3,20 @@
 
 void Main()
 {
-	r3Term.ResetKeyboard();
-	r3Term.hrange = R3Term::MakeRange(0, 11);
-	r3Term.vrange = R3Term::MakeRange(0, 7);
-	r3Term.cursor = R3Term::MakeCursorPosition(0, 0);
-	r3Term.nlchar = '\n';
-	r3Term.colour = R3Term::MakeColour(0, 15);
-	r3Term.scrollmask = 0xFFFFFFFF;
+	r4Term.ResetKeyboard();
+	r4Term.hrange = R4Term::MakeRange(0, 11);
+	r4Term.vrange = R4Term::MakeRange(0, 7);
+	r4Term.cursor = R4Term::MakeCursorPosition(0, 0);
+	r4Term.nlchar = '\n';
+	r4Term.colour = R4Term::MakeColour(0, 15);
+	r4Term.scrollmask = 0xFFFFFFFF;
 	for (uint32_t i = 0; i < 8; ++i)
 	{
-		r3Term.Scrollprint(R3Term::enableScrollmask | R3Term::rowOriented, ' ');
+		r4Term.Scrollprint(R4Term::enableScrollmask, ' ');
 	}
 	while (true)
 	{
-		auto got = r3Term.ReadBlocking();
-		r3Term.Scrollprint(R3Term::simpleTerminal, got);
+		auto got = r4Term.ReadBlocking();
+		r4Term.Scrollprint(R4Term::simpleTerminal, got);
 	}
 }

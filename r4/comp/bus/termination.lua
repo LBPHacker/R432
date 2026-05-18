@@ -67,37 +67,12 @@ end
 local function build(params)
 	local parts = {}
 	local ucontext = plot.common_structures(parts, params.debug_stacks and true or false)
-	local part = ucontext.part
-
 	build_internal(parts, {
 		debug_stacks = params.debug_stacks,
 		memory_mask  = params.memory_mask,
 		memory_base  = params.memory_base,
 	})
-
-	local width = 16
-	for x = -1, width do
-		part({ type = pt.DMND, x = x, y = -2, unstack = true })
-		part({ type = pt.DMND, x = x, y = -1, unstack = true })
-		part({ type = pt.DMND, x = x, y =  5, unstack = true })
-		part({ type = pt.DMND, x = x, y =  6, unstack = true })
-	end
-	for y = -1, 5 do
-		part({ type = pt.DMND, x = width    , y = y, unstack = true })
-		part({ type = pt.DMND, x = width + 1, y = y, unstack = true })
-		part({ type = pt.DMND, x =        -2, y = y, unstack = true })
-		part({ type = pt.DMND, x =        -1, y = y, unstack = true })
-	end
-
-	for _, part in ipairs(parts) do
-		part.dcolour = 0xFF007F7F
-		if part.type == pt.DMND then
-			part.dcolour = 0xFFFFFFFF
-		end
-		if part.type == pt.FILT then
-			part.dcolour = 0xFF00FFFF
-		end
-	end
+	ucontext.frame(-1, -1, 16, 5, -1, 1, 0xFF00FFFF)
 	return parts
 end
 
