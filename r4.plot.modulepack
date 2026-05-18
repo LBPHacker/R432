@@ -7,7 +7,5 @@ r4.comp.cpu.reg_r.generated
 r4.comp.cpu.core.generated_head
 r4.comp.cpu.core.generated_tail
 r4.comp.cpu.core.alu.generated_multiplier
-r4.comp.bus_termination
-r4.comp.r3_bus
-r4.comp.r3_bus.generated_top
-r4.comp.r3_bus.generated_bottom
+r4.comp.bus.termination
+r4.comp.bus.r3_adapter

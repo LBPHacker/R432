@@ -48,3 +48,10 @@ int32_t __modsi3(int32_t a, int32_t b)
 {
 	return a - __divsi3(a, b) * b;
 }
+
+_Noreturn void exit(int exitCode)
+{
+	(void)exitCode; // exit code is in a0 aka x10
+	__asm__ __volatile__("ecall"); // hlt
+	__builtin_unreachable();
+}
