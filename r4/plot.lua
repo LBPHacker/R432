@@ -8,9 +8,11 @@ local pt = plot.pt
 local audited_pairs = pairs
 
 local components_by_type = {
-	cpu      = require("r4.comp.cpu"),
-	r3_bus   = require("r4.comp.bus.r3_adapter"),
-	terminal = require("r4.comp.terminal"),
+	cpu         = require("r4.comp.cpu"),
+	r3_bus      = require("r4.comp.bus.r3_adapter"),
+	terminal    = require("r4.comp.terminal"),
+	filt_input  = require("r4.comp.filt_input"),
+	filt_output = require("r4.comp.filt_output"),
 }
 local valid_types = {}
 for key in audited_pairs(components_by_type) do

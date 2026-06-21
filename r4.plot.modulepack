@@ -16,3 +16,5 @@ r4.comp.terminal.font
 r4.comp.terminal.extra_keys
 r4.comp.terminal.core.generated_screen
 r4.comp.terminal.core.generated_keyboard
+r4.comp.filt_input
+r4.comp.filt_output

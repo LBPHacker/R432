@@ -30,6 +30,7 @@ foreach example : [
 	'Echo',
 	'Primes',
 	'HiAddrTest',
+	'FiltRelay',
 ]
 	program_ld = 'Programs/@0@/Hardware.ld'.format(example)
 	custom_target(
