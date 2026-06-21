@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-struct R4Term
+struct Terminal
 {
 	using Range = uint32_t;
 	static constexpr Range MakeRange(uint32_t first, uint32_t last)
@@ -27,19 +27,19 @@ struct R4Term
 		return column | (row << 8);
 	}
 
-	volatile uint32_t input;
-	volatile Range hrange;
-	volatile Range vrange;
-	volatile CursorPosition cursor;
-	volatile uint32_t nlchar;
-	volatile Colour colour;
-	volatile uint32_t scrollmask;
-	volatile uint32_t plotpix;
-	volatile uint32_t padding1[0x78];
-	volatile uint32_t scrollprint[0x80];
-	volatile uint32_t beginbitmap[0x100];
-	volatile uint32_t charmem[0x200];
-	volatile uint32_t endbitmap[0x400];
+	volatile uint32_t input; // read-only
+	volatile Range hrange; // write-only
+	volatile Range vrange; // write-only
+	volatile CursorPosition cursor; // write-only
+	volatile uint32_t nlchar; // write-only
+	volatile Colour colour; // write-only
+	volatile uint32_t scrollmask; // write-only
+	volatile uint32_t plotpix; // write-only
+	volatile uint32_t padding1[0x78]; // write-only
+	volatile uint32_t scrollprint[0x80]; // write-only
+	volatile uint32_t beginbitmap[0x100]; // write-only
+	volatile uint32_t charmem[0x200]; // write-only
+	volatile uint32_t endbitmap[0x400]; // write-only
 
 	using ScrollprintFlag = uint32_t;
 	static constexpr ScrollprintFlag posInData        = UINT32_C(1) << 6;
@@ -79,4 +79,4 @@ struct R4Term
 		return got;
 	}
 };
-static_assert(sizeof(R4Term) == 0x2000);
+static_assert(sizeof(Terminal) == 0x2000);

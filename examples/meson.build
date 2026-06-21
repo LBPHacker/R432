@@ -31,6 +31,7 @@ foreach example : [
 	'Primes',
 	'HiAddrTest',
 ]
+	program_ld = 'Programs/@0@/Hardware.ld'.format(example)
 	custom_target(
 		'@0@.bin'.format(example),
 		build_by_default: true,
@@ -44,20 +45,24 @@ foreach example : [
 		input: executable(
 			'@0@.elf'.format(example),
 			sources: [
-				'Start.S',
-				'Runtime.c',
-				'@0@/Main.cpp'.format(example),
+				'Runtime/Start.S',
+				'Runtime/Runtime.c',
+				'Programs/@0@/Main.cpp'.format(example),
 			],
 			c_args: c_args,
 			cpp_args: cpp_args,
-			include_directories: include_directories('.'),
+			include_directories: include_directories([
+				'Runtime',
+				'Hardware',
+				'Programs/@0@'.format(example),
+			]),
 			link_depends: [
 				'common.ld',
-				'@0@/Hardware.ld'.format(example),
+				program_ld,
 			],
 			link_args: [
 				'-T', meson.current_source_dir() / 'common.ld',
-				'-T', meson.current_source_dir() / '@0@/Hardware.ld'.format(example),
+				'-T', meson.current_source_dir() / program_ld,
 				'-Wl,--gc-sections',
 				'-Wl,--no-warn-rwx-segments',
 			] + cpp_args,

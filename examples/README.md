@@ -23,7 +23,7 @@ foreach example : [
 	...
 ```
 - add your own at the end of the list, e.g. `Doom`
-- create a `Doom` directory
-- create `Doom/Main.cpp` and put your code in it
-- create `Doom/Hardware.ld` and list the peripherals in it specific to your demo (see other per-demo linker scripts in this directory for inspiration)
-- optionally create `Doom/Hardware.hpp`, include it in `Doom/Main.cpp`, keep it in sync with `Doom/Hardware.ld` (TODO: generate `Hardware.*` with r4plot)
+- create a `Doom` directory in `Programs`
+- create `Programs/Doom/Main.cpp` and put your code in it
+- create `Programs/Doom/Hardware.ld` and list the peripherals in it specific to your demo (see other per-demo linker scripts in this directory for inspiration)
+- optionally create `Programs/Doom/Hardware.hpp`, include it in `Programs/Doom/Main.cpp`, keep it in sync with `Programs/Doom/Hardware.ld` (TODO: generate `Hardware.*` with r4plot)

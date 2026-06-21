@@ -6,7 +6,7 @@ static void PrintOne(const char *ch)
 {
 	for (auto *p = ch; *p; ++p)
 	{
-		r4Term.Scrollprint(R4Term::simpleTerminal, *p);
+		terminal.Scrollprint(Terminal::simpleTerminal, *p);
 	}
 }
 
@@ -17,7 +17,7 @@ static void PrintOne(uint32_t number)
 		seenNonzero |= part;
 		if (seenNonzero)
 		{
-			r4Term.Scrollprint(R4Term::simpleTerminal, char(part + '0'));
+			terminal.Scrollprint(Terminal::simpleTerminal, char(part + '0'));
 		}
 	};
 	auto print2 = [&](uint32_t part) {
@@ -34,7 +34,7 @@ static void PrintOne(uint32_t number)
 	print4(lo8 % 10000U);
 	if (!seenNonzero)
 	{
-		r4Term.Scrollprint(R4Term::simpleTerminal, '0');
+		terminal.Scrollprint(Terminal::simpleTerminal, '0');
 	}
 }
 
@@ -46,15 +46,15 @@ static void Print(Args &&...args)
 
 void Main()
 {
-	r4Term.hrange = R4Term::MakeRange(0, 11);
-	r4Term.vrange = R4Term::MakeRange(0, 7);
-	r4Term.cursor = R4Term::MakeCursorPosition(0, 0);
-	r4Term.nlchar = '\n';
-	r4Term.colour = R4Term::MakeColour(0, 15);
-	r4Term.scrollmask = 0xFFFFFFFF;
+	terminal.hrange = Terminal::MakeRange(0, 11);
+	terminal.vrange = Terminal::MakeRange(0, 7);
+	terminal.cursor = Terminal::MakeCursorPosition(0, 0);
+	terminal.nlchar = '\n';
+	terminal.colour = Terminal::MakeColour(0, 15);
+	terminal.scrollmask = 0xFFFFFFFF;
 	for (uint32_t i = 0; i < 8; ++i)
 	{
-		r4Term.Scrollprint(R4Term::enableScrollmask, ' ');
+		terminal.Scrollprint(Terminal::enableScrollmask, ' ');
 	}
 
 	uint32_t number = 2;
