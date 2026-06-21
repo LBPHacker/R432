@@ -13,6 +13,8 @@ local components_by_type = {
 	terminal    = require("r4.comp.terminal"),
 	filt_input  = require("r4.comp.filt_input"),
 	filt_output = require("r4.comp.filt_output"),
+	inst_input  = require("r4.comp.inst_input"),
+	inst_output = require("r4.comp.inst_output"),
 }
 local valid_types = {}
 for key in audited_pairs(components_by_type) do

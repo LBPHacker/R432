@@ -4,34 +4,21 @@ local check    = require("spaghetti.check")
 local r4_check = require("r4.check")
 
 local pt = plot.pt
-local audited_pairs = pairs
 
-local function build(params, params_name, component)
-	local areas = {}
-
-	local xoff
-	if params.x.which == "left" then
-		xoff = params.x.value
-	else
-		xoff = params.x.value - width + 1
-	end
-
-	local peripheral_mask = 0xFFFFFFFF
-	local peripheral_base = params.base_address
-	r4_check.base_address(params_name .. ".base_address", peripheral_base, peripheral_mask)
+local function build_internal(params)
+	local width = params.width
 
 	local parts = {}
 	local ucontext = plot.common_structures(parts, params.debug_stacks and true or false)
-	local cray         = ucontext.cray
-	local dray           = ucontext.dray
-	local part          = ucontext.part
-	local aray          = ucontext.aray
-	local ldtc          = ucontext.ldtc
-	local spark         = ucontext.spark
+	local cray  = ucontext.cray
+	local dray  = ucontext.dray
+	local part  = ucontext.part
+	local aray  = ucontext.aray
+	local ldtc  = ucontext.ldtc
+	local spark = ucontext.spark
 
-	local x = xoff
+	local x = params.x
 	local y = params.bus.y
-	local width = 30
 
 	local y_bottom = y + 6
 	do
@@ -75,12 +62,12 @@ local function build(params, params_name, component)
 
 		part({ type = pt.FILT, x = x_top +  3, y = y_top })
 		part({ type = pt.BRAY, x = x_top +  4, y = y_top, life = 1 })
-		part({ type = pt.FILT, x = x_top +  5, y = y_top, tmp = 1, ctype = bitx.bor(0x13000000, bitx.band(peripheral_mask, 0xFFFFFF)) })
+		part({ type = pt.FILT, x = x_top +  5, y = y_top, tmp = 1, ctype = bitx.bor(0x13000000, bitx.band(params.peripheral_mask, 0xFFFFFF)) })
 		part({ type = pt.STOR, x = x_top +  6, y = y_top })
 		part({ type = pt.DTEC, x = x_top +  7, y = y_top, tmp2 = 3 })
 		part({ type = pt.STOR, x = x_top +  7, y = y_top })
 		part({ type = pt.STOR, x = x_top +  8, y = y_top })
-		part({ type = pt.FILT, x = x_top +  9, y = y_top, tmp = 7, ctype = bitx.bor(0x22000000, bitx.band(peripheral_base, 0xFFFFFF)) })
+		part({ type = pt.FILT, x = x_top +  9, y = y_top, tmp = 7, ctype = bitx.bor(0x22000000, bitx.band(params.peripheral_base, 0xFFFFFF)) })
 		part({ type = pt.BRAY, x = x_top + 10, y = y_top, life = 1 })
 		part({ type = pt.DMND, x = x_top + 11, y = y_top })
 
@@ -89,8 +76,8 @@ local function build(params, params_name, component)
 
 		part ({ type = pt.FILT, x = x_top +  2, y = y_top + 1 })
 		part ({ type = pt.BRAY, x = x_top +  3, y = y_top + 1, life = 1 })
-		part ({ type = pt.FILT, x = x_top +  4, y = y_top + 1, tmp = 1, ctype = bitx.bor(0x13000000, bitx.band(bitx.rshift(peripheral_mask, 8), 0xFF0000)) })
-		part ({ type = pt.FILT, x = x_top +  5, y = y_top + 1, tmp = 7, ctype = bitx.bor(0x22000000, bitx.band(bitx.rshift(peripheral_base, 8), 0xFF0000)) })
+		part ({ type = pt.FILT, x = x_top +  4, y = y_top + 1, tmp = 1, ctype = bitx.bor(0x13000000, bitx.band(bitx.rshift(params.peripheral_mask, 8), 0xFF0000)) })
+		part ({ type = pt.FILT, x = x_top +  5, y = y_top + 1, tmp = 7, ctype = bitx.bor(0x22000000, bitx.band(bitx.rshift(params.peripheral_base, 8), 0xFF0000)) })
 		part ({ type = pt.STOR, x = x_top +  6, y = y_top + 1 })
 		part ({ type = pt.FILT, x = x_top +  7, y = y_top + 1, tmp = 2 })
 		part ({ type = pt.STOR, x = x_top +  8, y = y_top + 1 })
@@ -115,8 +102,8 @@ local function build(params, params_name, component)
 		dray(x_top + 11, y_top + 5, x_top + 13, y_top + 3, 1, pt.PSCN)
 		part ({ type = pt.CONV, x = x_top + 11, y = y_top + 5, tmp = pt.INSL, ctype = pt.FILT })
 		part ({ type = pt.BRAY, x = x_top + 14, y = y_top + 5, ctype = 0x1001FFFF, life = 1000 })
-		part ({ type = pt.LSNS, x = x_top + 14, y = y_top + 6, tmp = 3 })
-		part ({ type = pt.FILT, x = x_top + 13, y = y_top + 6, ctype = 0x10001000 })
+		part ({ type = pt.LSNS, x = x_top + 13, y = y_top + 5, tmp = 3 })
+		part ({ type = pt.FILT, x = x_top + 14, y = y_top + 6, ctype = 0x10001000 })
 
 		do
 			local target = part({ type = pt.BRAY, x = x_top + 16, y = y_top + 1, life = 3 })
@@ -182,6 +169,37 @@ local function build(params, params_name, component)
 		cray(x_top + 7, y_bottom - 1, x_top + 11, y_top + 1, pt.SPRK, 1, pt.PSCN)
 	end
 
+	return parts
+end
+
+local function build(params, params_name, component)
+	local areas = {}
+
+	local xoff
+	if params.x.which == "left" then
+		xoff = params.x.value
+	else
+		xoff = params.x.value - width + 1
+	end
+
+	local peripheral_mask = 0xFFFFFFFF
+	local peripheral_base = params.base_address
+	r4_check.base_address(params_name .. ".base_address", peripheral_base, peripheral_mask)
+
+	local parts = {}
+	local ucontext = plot.common_structures(parts, params.debug_stacks and true or false)
+
+	local width = 30
+	local internal_parts = build_internal({
+		x               = xoff,
+		debug_stacks    = params.debug_stacks,
+		bus             = params.bus,
+		peripheral_mask = peripheral_mask,
+		peripheral_base = peripheral_base,
+		width           = width,
+	})
+	plot.merge_parts(0, 0, parts, internal_parts)
+
 	local interface = {
 		type = "solid",
 		name = "body",
@@ -215,6 +233,7 @@ local function param_types()
 end
 
 return {
-	build       = build,
-	param_types = param_types,
+	build          = build,
+	param_types    = param_types,
+	build_internal = build_internal,
 }

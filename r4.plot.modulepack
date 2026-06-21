@@ -18,3 +18,5 @@ r4.comp.terminal.core.generated_screen
 r4.comp.terminal.core.generated_keyboard
 r4.comp.filt_input
 r4.comp.filt_output
+r4.comp.inst_input
+r4.comp.inst_output
