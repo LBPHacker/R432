@@ -28,6 +28,7 @@ local function build_internal(params, params_name)
 		eus = #params.cores
 		core_types_str = params.cores
 	end
+	local have_mul = core_types_str:find("m")
 	if params.machine_id ~= nil then
 		check.integer(("%s.machine_id"):format(params_name), params.machine_id)
 	end
@@ -1461,7 +1462,7 @@ local function build_internal(params, params_name)
 			checksum = checksum + value
 			x_push = x_push + 1
 		end
-		local model_name = ("R4A%02i%02i"):format(height, eus)
+		local model_name = ("R4A%02i%02i%s"):format(eus, height, have_mul and "M" or "I")
 		for ch in model_name:gmatch(".") do
 			push(ch:byte())
 		end
