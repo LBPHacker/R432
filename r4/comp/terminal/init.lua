@@ -1821,16 +1821,17 @@ local function build(params, params_name, component)
 		do
 			local y_local = screen_yoff + size_bh * block_size + 44
 			local area = {
-				type = "solid",
-				name = "screen_local",
-				x    = xoff + size_bw * block_size + 24,
-				y    = y_local,
-				w    = 5,
-				h    = params.bus.y - y_local - 4,
+				type      = "solid",
+				name      = "screen_local",
+				x         = xoff + size_bw * block_size + 24,
+				y         = y_local,
+				w         = 5,
+				h         = params.bus.y - y_local - 4,
+				filt_wire = true,
 			}
 			for y = area.y, area.y + area.h - 1 do
 				for x = area.x, area.x + area.w - 1 do
-					part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF })
+					part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF, unstack = true })
 				end
 			end
 			table.insert(areas, area)
@@ -2098,16 +2099,17 @@ local function build(params, params_name, component)
 
 		do
 			local area = {
-				type = "solid",
-				name = "keyboard_local",
-				x    = xoff + 6,
-				y    = params.bus.y + 9,
-				w    = 3,
-				h    = keyboard_yoff - params.bus.y - 9,
+				type      = "solid",
+				name      = "keyboard_local",
+				x         = xoff + 6,
+				y         = params.bus.y + 9,
+				w         = 3,
+				h         = keyboard_yoff - params.bus.y - 9,
+				filt_wire = true,
 			}
 			for y = area.y, area.y + area.h - 1 do
 				for x = area.x, area.x + area.w - 1 do
-					part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF })
+					part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF, unstack = true })
 				end
 			end
 			table.insert(areas, area)

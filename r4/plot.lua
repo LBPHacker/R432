@@ -148,12 +148,13 @@ local function place_components(x_top, y_top, components_name, components, debug
 				local build_info = components_by_type[component.type].build(component_to_new_params[component], component_name)
 				for _, area in ipairs(build_info.areas) do
 					local new_area = {
-						type = area.type,
-						name = component.name .. "." .. area.name,
-						x    = area.x,
-						y    = area.y,
-						w    = area.w,
-						h    = area.h,
+						type      = area.type,
+						name      = component.name .. "." .. area.name,
+						x         = area.x,
+						y         = area.y,
+						w         = area.w,
+						h         = area.h,
+						filt_wire = area.filt_wire,
 					}
 					add_area(new_area)
 					area.successor = new_area
@@ -221,16 +222,17 @@ local function place_components(x_top, y_top, components_name, components, debug
 				local function add_section(x_from, x_to, index, shift)
 					for x = x_from, x_to + shift do
 						for y = bus.y, bus.y + 4 do
-							part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF })
+							part({ type = pt.FILT, x = x, y = y, dcolour = 0xFF00FFFF, unstack = true })
 						end
 					end
 					add_area({
-						type = "solid",
-						name = component.name .. ".bus" .. (ix_bus - 1) .. ".section" .. index,
-						x    = x_from,
-						y    = bus.y,
-						w    = x_to - x_from + 1,
-						h    = 5,
+						type      = "solid",
+						name      = component.name .. ".bus" .. (ix_bus - 1) .. ".section" .. index,
+						x         = x_from,
+						y         = bus.y,
+						w         = x_to - x_from + 1,
+						h         = 5,
+						filt_wire = true,
 					})
 				end
 				table.sort(bus.through_areas, function(lhs, rhs)
@@ -301,8 +303,9 @@ local function place_components(x_top, y_top, components_name, components, debug
 			for y = area.y, area.y + area.h - 1 do
 				for x = area.x, area.x + area.w - 1 do
 					local key = plot.xy_key(x, y)
-					if coverage[key] then
-						err = ("area %s overlaps with area %s"):format(area.name, coverage[key].name)
+					local other_area = coverage[key]
+					if other_area and not (other_area.filt_wire and area.filt_wire) then
+						err = ("area %s overlaps with area %s"):format(area.name, other_area.name)
 						break
 					end
 					coverage[key] = area
