@@ -70,16 +70,58 @@ local function build(params, params_name, component)
 
 	local peripheral_base = params.base_address
 
-	local colors = { -- TODO: overrides from params.*
+	local colors = {
 		[ 0 ] = 0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
 		        0xAA0000, 0xAA00AA, 0xAAAA00, 0xAAAAAA,
 		        0x555555, 0x5555FF, 0x55FF55, 0x55FFFF,
 		        0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
 	}
+	if params.colors ~= nil then
+		local colors_name = params_name .. ".colors"
+		check.table(colors_name, params.colors)
+		for key, value in audited_pairs(params.colors) do
+			check.integer_range(colors_name .. " key " .. tostring(key), key, 0, 15)
+			check.integer_range(colors_name .. "[" .. key .. "]", value, 0, 0xFFFFFF)
+			colors[key] = value
+		end
+	end
 
-	local font = {} -- TODO: overrides from params.*
+	local function parse_font_bitmap(value_name, width, height)
+		check.string(value_name, value)
+		local next_char = value:gmatch("[%.#]")
+		local data = {}
+		for ix_row = 0, height - 1 do
+			local row = 0
+			for ix_column = 0, width - 1 do
+				local ch = next_char()
+				if not ch then
+					misc.user_error("%s is missing pixel (%i; %i)", value_name, ix_column, ix_row)
+				end
+				if ch == "#" then
+					row = bitx.bor(row, bitx.lshift(1, ix_column))
+				elseif ch ~= "." then
+					misc.user_error("%s pixel (%i; %i) is neither . nor #", value_name, ix_column, ix_row)
+				end
+			end
+			data[ix_row] = row
+		end
+		if next_char() then
+			misc.user_error("%s has excess pixels", value_name)
+		end
+		return data
+	end
+
+	local font = {}
 	for key, value in audited_pairs(font_template) do
 		font[key] = value
+	end
+	if params.font ~= nil then
+		local font_name = params_name .. ".font"
+		check.table(font_name, params.font)
+		for key, value in audited_pairs(params.font) do
+			check.integer_range(font_name .. " key " .. tostring(key), key, 0, 0xFF)
+			font[key] = parse_font_bitmap(font_name .. "[" .. key .. "]", 8, 8)
+		end
 	end
 
 	local parts = {}
