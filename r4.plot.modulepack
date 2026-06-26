@@ -20,3 +20,5 @@ r4.comp.filt_input
 r4.comp.filt_output
 r4.comp.inst_input
 r4.comp.inst_output
+r4.comp.random_source
+r4.comp.frame_clock

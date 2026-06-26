@@ -125,8 +125,10 @@ local function build_internal(params)
 		part ({ type = pt.STOR, x = x_top + 18, y = y_top + 2 })
 		part ({ type = pt.DTEC, x = x_top + 21, y = y_top + 2 })
 		part ({ type = pt.DTEC, x = x_top + 25, y = y_top + 2 })
-		local data_lo = part({ type = pt.FILT, x = x_top + 18, y = y_top + 5, ctype = 0x10000000 })
-		local data_hi = part({ type = pt.FILT, x = x_top + 22, y = y_top + 5, ctype = 0x10000000 })
+		local initial_value_lo = bitx.bor(0x10000000, bitx.band(            params.initial_value     , 0xFFFF))
+		local initial_value_hi = bitx.bor(0x10000000, bitx.band(bitx.rshift(params.initial_value, 16), 0xFFFF))
+		local data_lo = part({ type = pt.FILT, x = x_top + 18, y = y_top + 5, ctype = initial_value_lo })
+		local data_hi = part({ type = pt.FILT, x = x_top + 22, y = y_top + 5, ctype = initial_value_hi })
 		part ({ type = pt.STOR, x = x_top + 21, y = y_top + 2 })
 		part ({ type = pt.STOR, x = x_top + 22, y = y_top + 2 })
 		part ({ type = pt.DMND, x = x_top + 24, y = y_top + 1 })
@@ -145,22 +147,22 @@ local function build_internal(params)
 		end
 		part({ type = pt.FILT, x = x_top + 8, y = y_top + 2 })
 
-		part({ type = pt.FILT, x = data_lo.x, y = y_top - 4, ctype = 0x10000000 })
+		part({ type = pt.FILT, x = data_lo.x, y = y_top - 4, ctype = initial_value_lo })
 		do
 			local p = ldtc(data_lo.x, y_top - 3, data_lo.x, data_lo.y)
 			p.dcolour = 0xFF007F7F
 		end
-		part({ type = pt.FILT, x = data_lo.x, y = y_top + 8, ctype = 0x10000000 })
+		part({ type = pt.FILT, x = data_lo.x, y = y_top + 8, ctype = initial_value_lo })
 		do
 			local p = ldtc(data_lo.x, y_top + 7, data_lo.x, data_lo.y)
 			p.dcolour = 0xFF007F7F
 		end
-		part({ type = pt.FILT, x = data_hi.x, y = y_top - 4, ctype = 0x10000000 })
+		part({ type = pt.FILT, x = data_hi.x, y = y_top - 4, ctype = initial_value_hi })
 		do
 			local p = ldtc(data_hi.x, y_top - 3, data_hi.x, data_hi.y)
 			p.dcolour = 0xFF007F7F
 		end
-		part({ type = pt.FILT, x = data_hi.x, y = y_top + 8, ctype = 0x10000000 })
+		part({ type = pt.FILT, x = data_hi.x, y = y_top + 8, ctype = initial_value_hi })
 		do
 			local p = ldtc(data_hi.x, y_top + 7, data_hi.x, data_hi.y)
 			p.dcolour = 0xFF007F7F
@@ -174,6 +176,12 @@ end
 
 local function build(params, params_name, component)
 	local areas = {}
+
+	local initial_value = 0
+	if params.initial_value ~= nil then
+		check.integer_range(params_name .. ".initial_value", params.initial_value, 0, 0xFFFFFFFF)
+		initial_value = params.initial_value
+	end
 
 	local xoff
 	if params.x.which == "left" then
@@ -197,6 +205,7 @@ local function build(params, params_name, component)
 		peripheral_mask = peripheral_mask,
 		peripheral_base = peripheral_base,
 		width           = width,
+		initial_value   = initial_value,
 	})
 	plot.merge_parts(0, 0, parts, internal_parts)
 

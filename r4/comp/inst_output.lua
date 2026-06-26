@@ -10,6 +10,12 @@ local function build(params, params_name, component)
 	check.integer_range(params_name .. ".bits", params.bits, 1, 32)
 	local width = math.max(32, params.bits * 2 + 7)
 
+	local initial_value = 0
+	if params.initial_value ~= nil then
+		check.integer_range(params_name .. ".initial_value", params.initial_value, 0, 0xFFFFFFFF)
+		initial_value = params.initial_value
+	end
+
 	local areas = {}
 
 	local xoff
@@ -41,6 +47,7 @@ local function build(params, params_name, component)
 		peripheral_mask = peripheral_mask,
 		peripheral_base = peripheral_base,
 		width           = width,
+		initial_value   = initial_value,
 	})
 	plot.merge_parts(0, 0, parts, filt_output_parts)
 
