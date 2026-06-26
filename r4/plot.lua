@@ -1,6 +1,7 @@
 local plot            = require("spaghetti.plot")
 local check           = require("spaghetti.check")
 local misc            = require("spaghetti.misc")
+local bitx            = require("spaghetti.bitx")
 local bus_termination = require("r4.comp.bus.termination")
 local r4_check        = require("r4.check")
 
@@ -44,6 +45,7 @@ local function place_components(x_top, y_top, components_name, components, debug
 			check.integer_range(component_name .. ".memory_base", component.memory_base, 0, r4_check.address_max)
 			r4_check.base_address(component_name .. ".memory_base", component.memory_base, memory_mask)
 			component.memory_mask = memory_mask
+			component.mmio_ranges = {}
 			check.string(component_name .. ".cores", component.cores)
 			local component_buses = {}
 			for ix_core = 1, #component.cores do
@@ -66,6 +68,7 @@ local function place_components(x_top, y_top, components_name, components, debug
 		component_order_forward[dependent][dependee] = true
 		component_order_backward[dependee][dependent] = true
 	end
+	local mmio_ranges = {}
 	for ix_component, component in ipairs(components) do
 		local component_name = ("%s[%i]"):format(components_name, ix_component)
 		local new_params = {
@@ -96,12 +99,31 @@ local function place_components(x_top, y_top, components_name, components, debug
 						local cpu_index = name_to_component_index[component[param_name].cpu]
 						mark_depends(ix_component, cpu_index)
 					end
+				elseif param_type.type == "base_address" then
+					if component[param_name] ~= nil or not param_type.optional then
+						r4_check.base_address(param_bus_name, component[param_name], param_type.mask)
+					end
+					local mmio_key = ("%i.%s"):format(ix_component, param_name)
+					table.insert(mmio_ranges, {
+						ix_component = ix_component,
+						name         = param_bus_name,
+						buses        = param_type.buses,
+						base         = component[param_name],
+						size         = bitx.bxor(param_type.mask, 0xFFFFFFFF) + 1,
+					})
 				else
 					error("bad param type")
 				end
 			end
 		end
 		component_to_new_params[component] = new_params
+	end
+	for _, mmio_range in ipairs(mmio_ranges) do
+		local component = components[mmio_range.ix_component]
+		for _, bus_name in ipairs(mmio_range.buses) do
+			local bus = component_to_new_params[component][bus_name]
+			bus.cpu.mmio_ranges[mmio_range] = true
+		end
 	end
 	local relative_parts = {}
 	local areas = {}
@@ -138,6 +160,31 @@ local function place_components(x_top, y_top, components_name, components, debug
 				end
 				plot.merge_parts(0, 0, relative_parts, build_info.parts)
 				if component.type == "cpu" then
+					do
+						local ranges_by_address = {}
+						for mmio_ranges in audited_pairs(component.mmio_ranges) do
+							table.insert(ranges_by_address, mmio_ranges)
+						end
+						table.sort(ranges_by_address, function(lhs, rhs)
+							return lhs.base < rhs.base
+						end)
+						for ix_range = 1, #ranges_by_address - 1 do
+							local curr_range = ranges_by_address[ix_range]
+							local next_range = ranges_by_address[ix_range + 1]
+							if curr_range.base + curr_range.size > next_range.base then
+								misc.user_error(
+									"%s address space: %s spanning [0x%08X, 0x%08X] overlaps with %s spanning [0x%08X, 0x%08X]",
+									component.name,
+									curr_range.name,
+									curr_range.base,
+									curr_range.base + curr_range.size - 1,
+									next_range.name,
+									next_range.base,
+									next_range.base + next_range.size - 1
+								)
+							end
+						end
+					end
 					local component_buses = buses[name_to_component_index[component.name]]
 					for ix_bus, bus in ipairs(build_info.buses) do
 						component_buses[ix_bus].x = bus.x

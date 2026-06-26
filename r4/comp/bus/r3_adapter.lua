@@ -2,18 +2,16 @@ local bitx            = require("spaghetti.bitx")
 local plot            = require("spaghetti.plot")
 local misc            = require("spaghetti.misc")
 local check           = require("spaghetti.check")
-local r4_check        = require("r4.check")
 local bus_termination = require("r4.comp.bus.termination")
 
 local pt = plot.pt
+local adapter_mask = 0xFFFC0000
 
 local function build(params, params_name, component)
 	local memory_base = params.bus_0.cpu.memory_base
 	local memory_mask = params.bus_0.cpu.memory_mask
 
 	local adapter_base = params.base_address
-	local adapter_mask = 0xFFFC0000
-	r4_check.base_address(params_name .. ".base_address", params.base_address, adapter_mask)
 	local areas = {}
 
 	if params.bus_0.cpu ~= params.bus_1.cpu or
@@ -393,6 +391,11 @@ local function param_types()
 		},
 		bus_1 = {
 			type = "cpu_bus",
+		},
+		base_address = {
+			type  = "base_address",
+			buses = { "bus_0", "bus_1" },
+			mask  = adapter_mask,
 		},
 	}
 end

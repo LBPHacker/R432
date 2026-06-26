@@ -1,9 +1,9 @@
 local bitx     = require("spaghetti.bitx")
 local plot     = require("spaghetti.plot")
 local check    = require("spaghetti.check")
-local r4_check = require("r4.check")
 
 local pt = plot.pt
+local peripheral_mask = 0xFFFFFFFF
 
 local function build_internal(params)
 	local width = params.width
@@ -173,9 +173,7 @@ local function build(params, params_name, component)
 		xoff = params.x.value - width + 1
 	end
 
-	local peripheral_mask = 0xFFFFFFFF
 	local peripheral_base = params.base_address
-	r4_check.base_address(params_name .. ".base_address", peripheral_base, peripheral_mask)
 
 	local parts = {}
 	local ucontext = plot.common_structures(parts, params.debug_stacks and true or false)
@@ -218,6 +216,11 @@ local function param_types()
 		},
 		bus = {
 			type = "cpu_bus",
+		},
+		base_address = {
+			type  = "base_address",
+			buses = { "bus" },
+			mask  = peripheral_mask,
 		},
 	}
 end

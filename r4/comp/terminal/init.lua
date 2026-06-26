@@ -4,7 +4,6 @@ local check         = require("spaghetti.check")
 local misc          = require("spaghetti.misc")
 local write_tap     = require("r4.comp.bus.write_tap")
 local read_tap      = require("r4.comp.bus.read_tap")
-local r4_check      = require("r4.check")
 local font_template = require("r4.comp.terminal.font")
 local extra_keys    = require("r4.comp.terminal.extra_keys")
 local screen_core   = require("r4.comp.terminal.core.generated_screen")
@@ -12,6 +11,7 @@ local keyboard_core = require("r4.comp.terminal.core.generated_keyboard")
 
 local pt = plot.pt
 local audited_pairs = pairs
+local peripheral_mask = 0xFFFFE000
 
 local function build(params, params_name, component)
 	local have_screen = params.screen_y and true
@@ -68,9 +68,7 @@ local function build(params, params_name, component)
 		end
 	end
 
-	local peripheral_mask = 0xFFFFE000
 	local peripheral_base = params.base_address
-	r4_check.base_address(params_name .. ".base_address", peripheral_base, peripheral_mask)
 
 	local colors = { -- TODO: overrides from params.*
 		[ 0 ] = 0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
@@ -2143,6 +2141,11 @@ local function param_types()
 		},
 		bus = {
 			type = "cpu_bus",
+		},
+		base_address = {
+			type  = "base_address",
+			buses = { "bus" },
+			mask  = peripheral_mask,
 		},
 	}
 end
