@@ -5,7 +5,6 @@ local misc          = require("spaghetti.misc")
 local write_tap     = require("r4.comp.bus.write_tap")
 local read_tap      = require("r4.comp.bus.read_tap")
 local font_template = require("r4.comp.terminal.font")
-local extra_keys    = require("r4.comp.terminal.extra_keys")
 local screen_core   = require("r4.comp.terminal.core.generated_screen")
 local keyboard_core = require("r4.comp.terminal.core.generated_keyboard")
 
@@ -86,22 +85,24 @@ local function build(params, params_name, component)
 		end
 	end
 
-	local function parse_font_bitmap(value_name, width, height)
+	local function parse_font_bitmap(value_name, value, width, height)
 		check.string(value_name, value)
 		local next_char = value:gmatch("[%.#]")
 		local data = {}
 		for ix_row = 0, height - 1 do
-			local row = 0
+			local row = {}
 			for ix_column = 0, width - 1 do
 				local ch = next_char()
 				if not ch then
 					misc.user_error("%s is missing pixel (%i; %i)", value_name, ix_column, ix_row)
 				end
+				local pixel = false
 				if ch == "#" then
-					row = bitx.bor(row, bitx.lshift(1, ix_column))
+					pixel = true
 				elseif ch ~= "." then
 					misc.user_error("%s pixel (%i; %i) is neither . nor #", value_name, ix_column, ix_row)
 				end
+				row[ix_column] = pixel
 			end
 			data[ix_row] = row
 		end
@@ -113,14 +114,22 @@ local function build(params, params_name, component)
 
 	local font = {}
 	for key, value in audited_pairs(font_template) do
-		font[key] = value
+		local data = {}
+		for ix_row = 0, 7 do
+			local row = {}
+			for ix_column = 0, 7 do
+				row[ix_column] = bitx.band(value[ix_row], bitx.lshift(1, ix_column)) ~= 0
+			end
+			data[ix_row] = row
+		end
+		font[key] = data
 	end
 	if params.font ~= nil then
 		local font_name = params_name .. ".font"
 		check.table(font_name, params.font)
 		for key, value in audited_pairs(params.font) do
 			check.integer_range(font_name .. " key " .. tostring(key), key, 0, 0xFF)
-			font[key] = parse_font_bitmap(font_name .. "[" .. key .. "]", 8, 8)
+			font[key] = parse_font_bitmap(font_name .. "[" .. key .. "]", value, 8, 8)
 		end
 	end
 
@@ -172,12 +181,13 @@ local function build(params, params_name, component)
 				for x = 0, cmem_width - 1 do
 					local char_index = x + (3 - bitx.band(y, 3)) * 0x40
 					local base = bitx.band(y, 4)
-					local data = bitx.bor(
-						            font[char_index][base    ]     ,
-						bitx.lshift(font[char_index][base + 1],  8),
-						bitx.lshift(font[char_index][base + 2], 16),
-						bitx.lshift(font[char_index][base + 3], 24)
-					)
+					local data = 0
+					for ix_row = 0, 3 do
+						local row = font[char_index][base + ix_row]
+						for ix_column = 0, 7 do
+							data = bitx.bor(data, bitx.lshift(row[ix_column] and 1 or 0, ix_column + ix_row * 8))
+						end
+					end
 					part(memory32({ x = x_cmem + x, y = y_cmem + y }, data))
 				end
 				local mask = (y % 2 == 0) and 0x2000 or 0x20000000
@@ -1884,14 +1894,197 @@ local function build(params, params_name, component)
 		local x_keyboard = xoff
 		local y_keyboard = keyboard_yoff
 
-		local layout = {
-			{ first =  8, "`~", "1!", "2@", "3#", "4$", "5%", "6^", "7&", "8*", "9(", "0)", "-_", "=+",    "\8\24" },
-			{ first = 12, "\9\25", "qQ", "wW", "eE", "rR", "tT", "yY", "uU", "iI", "oO", "pP", "[{", "]}",   "\\|" },
-			{ first = 16, "caps"    , "aA", "sS", "dD", "fF", "gG", "hH", "jJ", "kK", "lL", ";:", "'\"",  "\10\26" },
-			{ first = 20, "lshift"     , "zZ", "xX", "cC", "vV", "bB", "nN", "mM", ",<", ".>", "/?",      "rshift" },
-			{ first = 16,   "\17\28",   "\18\29",                  " \16"                 ,   "\19\30",   "\20\31" },
+		local function make_special_key(key, width, bitmap)
+			return {
+				key    = key,
+				width  = width,
+				bitmap = parse_font_bitmap("?", bitmap, width, 8)
+			}
+		end
+		local f1 = make_special_key("\17\28", 16, [[
+			.....#####......
+			....#######.....
+			....##..###.....
+			....##..###.....
+			....##...##.....
+			....#######.....
+			.....#####......
+			................
+		]])
+		local f2 = make_special_key("\18\29", 16, [[
+			.....#####......
+			....#######.....
+			....##...##.....
+			....###..##.....
+			....###..##.....
+			....#######.....
+			.....#####......
+			................
+		]])
+		local space = make_special_key("space", 56, [[
+			........................................................
+			........................................................
+			........................................................
+			........................................................
+			........................................................
+			.......................##.....##........................
+			.......................#########........................
+			........................................................
+		]])
+		local f3 = make_special_key("\19\30", 16, [[
+			.....#####......
+			....#######.....
+			....##...##.....
+			....##..###.....
+			....##..###.....
+			....#######.....
+			.....#####......
+			................
+		]])
+		local f4 = make_special_key("\20\31", 16, [[
+			.....#####......
+			....#######.....
+			....###..##.....
+			....###..##.....
+			....##...##.....
+			....#######.....
+			.....#####......
+			................
+		]])
+		local tab = make_special_key("\9\25", 12, [[
+			.....#......
+			.....##.....
+			.#######....
+			.########...
+			.#######....
+			.....##.....
+			.....#......
+			............
+		]])
+		local caps = make_special_key("caps", 16, [[
+			....#...........
+			...###..........
+			..#####.........
+			.#######........
+			...###..........
+			................
+			...###..........
+			................
+		]])
+		local lshift = make_special_key("lshift", 20, [[
+			....#...............
+			...###..............
+			..#####.............
+			.#######............
+			...###..............
+			...###..............
+			...###..............
+			....................
+		]])
+		local backspace = make_special_key("\8\24", 16, [[
+			....#...........
+			...##...........
+			..############..
+			.#############..
+			..############..
+			...##...........
+			....#...........
+			................
+		]])
+		local kreturn = make_special_key("\10\26", 16, [[
+			....#......###..
+			...##......###..
+			..############..
+			.#############..
+			..###########...
+			...##...........
+			....#...........
+			................
+		]])
+		local rshift = make_special_key("rshift", 20, [[
+			..............#.....
+			.............###....
+			............#####...
+			...........#######..
+			.............###....
+			.............###....
+			.............###....
+			....................
+		]])
+		local pipe = {
+			key = "\\|",
+			width = 12,
 		}
+		local layout = {
+			{ "`~", "1!", "2@", "3#", "4$", "5%", "6^", "7&", "8*", "9(", "0)", "-_", "=+",  backspace },
+			{  tab   , "qQ", "wW", "eE", "rR", "tT", "yY", "uU", "iI", "oO", "pP", "[{", "]}",    pipe },
+			{  caps     , "aA", "sS", "dD", "fF", "gG", "hH", "jJ", "kK", "lL", ";:", "'\"",   kreturn },
+			{  lshift      , "zZ", "xX", "cC", "vV", "bB", "nN", "mM", ",<", ".>", "/?",        rshift },
+			{  f1       ,   f2      ,                  space                  ,   f3      ,         f4 },
+		}
+		local max_width = 120
+		if params.layout ~= nil then
+			local layout_name = params_name .. ".layout"
+			check.table(layout_name, params.layout)
+			for key, value in audited_pairs(params.layout) do
+				local row = {}
+				check.integer_range(layout_name .. " key " .. tostring(key), key, 1, 5)
+				local value_name = layout_name .. "[" .. key .. "]"
+				check.table(value_name, value)
+				check.integer_range(value_name .. " size", #value, 1, 15)
+				local x = 0
+				for ix_rvalue = 1, #value do
+					local rvalue = value[ix_rvalue]
+					local rvalue_name = value_name .. "[" .. ix_rvalue .. "]"
+					local rvalue_key_name = rvalue_name
+					if type(rvalue) == "string" then
+						rvalue = { key = rvalue }
+					else
+						rvalue_key_name = rvalue_key_name .. ".key"
+					end
+					check.table(rvalue_name, rvalue)
+					check.string(rvalue_key_name, rvalue.key)
+					if not (rvalue.key == "caps" or
+					        rvalue.key == "lshift" or
+					        rvalue.key == "rshift" or
+					        rvalue.key == "space") and #rvalue.key ~= 2 then
+						misc.user_error("%s is not a 2-character string", rvalue_key_name)
+					end
+					local width
+					if rvalue.width ~= nil then
+						check.integer_range(rvalue_name .. ".width", rvalue.width, 8, max_width)
+						width = rvalue.width
+					end
+					local bitmap
+					local effective_width = width or 8
+					if rvalue.left ~= nil then
+						check.integer_range(rvalue_name .. ".left", rvalue.left, 0, max_width)
+						if rvalue.left < x then
+							misc.user_error("%s is below current key position %i", rvalue_name .. ".left", x)
+						end
+						x = rvalue.left
+					end
+					if x + effective_width > max_width then
+						misc.user_error("%s causes its row to exceed %i pixels in width", rvalue_name, max_width)
+					end
+					if rvalue.bitmap ~= nil then
+						bitmap = parse_font_bitmap(rvalue_name .. ".bitmap", rvalue.bitmap, effective_width, 8)
+					end
+					row[ix_rvalue] = {
+						key    = rvalue.key,
+						left   = x,
+						width  = width,
+						bitmap = bitmap,
+					}
+					x = x + effective_width
+				end
+				layout[key] = row
+			end
+		end
 
+		local indicate_shift
+		local indicate_caps
+		local indicate_busy
 		local x_keys_min = x_keyboard + 9
 		local x_keys     = x_keys_min + ((size_bw - 12) * block_size) / 2
 		local y_keys     = y_keyboard + 3
@@ -1936,59 +2129,56 @@ local function build(params, params_name, component)
 			for y = 1, #layout do
 				local row = layout[y]
 				local x = 0
-				local w = row.first
 				for i = 1, #row do
+					local w = 8
 					local key = row[i]
-					local bitmap_str
-					do
-						local ek_w, ek_bitmap_str = extra_keys.get_extra_key(key)
-						if ek_w then
-							w = ek_w
-							bitmap_str = ek_bitmap_str
+					local bitmap
+					if type(key) == "table" then
+						if key.width then
+							w = key.width
 						end
-					end
-					if i == #row then
-						w = keys_width - x
+						if key.bitmap then
+							bitmap = key.bitmap
+						end
+						if key.left then
+							x = key.left
+						end
+						key = key.key
 					end
 					local h = 8
-					local bitmap = {}
 					local life
 					if key == "caps" then
+						if y == 3 and x <= 8 and x + w >= 16 then
+							indicate_caps = true
+						end
 						life = 2
 					elseif key == "lshift" then
+						if y == 4 and x <= 12 and x + w >= 20 then
+							indicate_shift = true
+						end
 						life = 1
 					elseif key == "rshift" then
 						life = 1
 					else
+						if key == "space" then
+							if y == 5 and x <= 76 and x + w >= 84 then
+								indicate_busy = true
+							end
+							key = " \16"
+						end
 						life = bitx.bor(bitx.bor(key:byte(1), bitx.lshift(key:byte(2), 7)), 0x4000)
 					end
 					local normal = key:sub(1, 1)
-					local shift = key:sub(2, 2)
-					if bitmap_str then
-						local next_char = bitmap_str:gmatch("[%.#]")
-						for yy = 0, h - 1 do
-							bitmap[yy] = {}
-							for xx = 0, w - 1 do
-								bitmap[yy][xx] = next_char() == "#"
-							end
-						end
-					else
+					if not bitmap then
 						local index = normal:byte()
 						if index >= 0x61 and index <= 0x7A then
 							life = bitx.bor(life, 0x8000)
 							index = index - 0x20
 						end
-						local data = font[index]
-						for yy = 0, h - 1 do
-							bitmap[yy] = {}
-							for xx = 0, w - 1 do
-								bitmap[yy][xx] = bitx.band(bitx.rshift(data[yy], xx), 1) ~= 0
-							end
-						end
+						bitmap = font[index]
 					end
 					emit_char(life, x_keys + x, y_keys + (y - 1) * 8, w, h, bitmap)
 					x = x + w
-					w = 8
 				end
 			end
 			for _, p in audited_pairs(keyboard_parts) do
@@ -2011,6 +2201,43 @@ local function build(params, params_name, component)
 				keyboard_part({ type = pt.CRMC, x = x, y = y + 1, life = data })
 				dray(x, y, x, y_gather, 1, false, 1000)
 			end
+
+			local function emit_indicator(x_ind, y_ind, dcolour, x_state)
+				for yy = 0, 2 do
+					cray(x_keys_min - 6 + yy % 2 * 3, y_ind + yy, x_ind, y_ind + yy, pt.SPRK, 3, pt.PSCN)
+				end
+				local spark_target = spark({ type = pt.NSCN, x = x_ind - 1, y = y_bottom + 1 })
+				for xx = 0, 2 do
+					part ({ type = pt.LCRY, x = x_ind + xx, y = y_bottom + 1, dcolour = dcolour })
+					spark({ type = pt.INWR, x = x_ind + xx, y = y_bottom + 3 })
+					for yy = 0, 2 do
+						local lx, ly = x_ind + xx, y_ind + yy
+						dray(x_ind + xx, y_bottom + 2, lx, ly, 1, false)
+						local p = keyboard_parts[plot.xy_key(lx, ly)]
+						p.type = pt.LCRY
+						p.dcolour = dcolour
+					end
+				end
+				spark_row(x_keys + 7, y_bottom + 3, x_ind, y_bottom + 3, pt.INWR, 3, 4, 3)
+				local function emit_reader(x_reader, ptype)
+					part ({ type = pt.LSNS, x = x_reader    , y = y_bottom + 1, tmp = 3 })
+					spark({ type = pt.PSCN, x = x_reader - 1, y = y_bottom + 1, tmp = 3 })
+					dray(x_reader - 2, y_bottom + 1, spark_target.x, spark_target.y, 1, false)
+					lsns_spark({ type = ptype, x = x_reader - 3, y = y_bottom + 1, life = 3 }, 0, 1, 1, 1)
+				end
+				emit_reader(x_state, pt.PSCN)
+				emit_reader(x_state + 5, pt.NSCN)
+			end
+			if indicate_caps then
+				emit_indicator(x_keys + 11, y_keys + 19, 0xFFFF0000, x_keys + 109)
+			end
+			if indicate_shift then
+				emit_indicator(x_keys + 15, y_keys + 27, 0xFF00FF00, x_keys +  99)
+			end
+			if indicate_busy then
+				emit_indicator(x_keys + 79, y_keys + 35, 0xFFFFFF00, x_keys +  89)
+			end
+
 			for _, p in ipairs(keyboard_parts_ordered) do
 				part(p)
 			end
@@ -2053,32 +2280,6 @@ local function build(params, params_name, component)
 			x_core_input = x_keys + 48
 			x_core_output = x_keys + 62
 		end
-
-		local function emit_indicator(x_ind, y_ind, dcolour, x_state)
-			for yy = 0, 2 do
-				cray(x_keys_min - 6 + yy % 2 * 3, y_ind + yy, x_ind, y_ind + yy, pt.SPRK, 3, pt.PSCN)
-			end
-			local spark_target = spark({ type = pt.NSCN, x = x_ind - 1, y = y_bottom + 1 })
-			for xx = 0, 2 do
-				part ({ type = pt.LCRY, x = x_ind + xx, y = y_bottom + 1, dcolour = dcolour })
-				spark({ type = pt.INWR, x = x_ind + xx, y = y_bottom + 3 })
-				for yy = 0, 2 do
-					dray(x_ind + xx, y_bottom + 2, x_ind + xx, y_ind + yy, 1, false)
-				end
-			end
-			spark_row(x_keys + 7, y_bottom + 3, x_ind, y_bottom + 3, pt.INWR, 3, 4, 3)
-			local function emit_reader(x_reader, ptype)
-				part ({ type = pt.LSNS, x = x_reader    , y = y_bottom + 1, tmp = 3 })
-				spark({ type = pt.PSCN, x = x_reader - 1, y = y_bottom + 1, tmp = 3 })
-				dray(x_reader - 2, y_bottom + 1, spark_target.x, spark_target.y, 1, false)
-				lsns_spark({ type = ptype, x = x_reader - 3, y = y_bottom + 1, life = 3 }, 0, 1, 1, 1)
-			end
-			emit_reader(x_state, pt.PSCN)
-			emit_reader(x_state + 5, pt.NSCN)
-		end
-		emit_indicator(x_keys + 11, y_keys + 19, 0xFFFF0000, x_keys + 109)
-		emit_indicator(x_keys + 15, y_keys + 27, 0xFF00FF00, x_keys +  99)
-		emit_indicator(x_keys + 79, y_keys + 35, 0xFFFFFF00, x_keys +  89)
 
 		do
 			local source = { x = x_keys + 11, y = y_bottom + 1 }
