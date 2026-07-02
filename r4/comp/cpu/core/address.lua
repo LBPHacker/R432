@@ -21,7 +21,7 @@ return testbed.module(function(params)
 			{ name = "instr_hi", index =  3, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "lhs_lo"  , index =  5, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "lhs_hi"  , index =  7, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-			{ name = "pc_lo"   , index =  9, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "pc_lo"   , index =  9, keepalive = 0x10000000, payload = 0x0000FFFC, initial = 0x10000000 },
 			{ name = "pc_hi"   , index = 11, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		},
 		outputs = {
@@ -73,7 +73,7 @@ return testbed.module(function(params)
 				instr_hi = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				lhs_lo   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				lhs_hi   = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				pc_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				pc_lo    = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
 				pc_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 			}
 		end,

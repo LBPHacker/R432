@@ -32,9 +32,6 @@ local function build_internal(params, params_name)
 	if params.machine_id ~= nil then
 		check.integer(("%s.machine_id"):format(params_name), params.machine_id)
 	end
-	if params.start_pc ~= nil then
-		check.integer_range(("%s.start_pc"):format(params_name), params.start_pc, 0x00000000, 0xFFFFFFFF)
-	end
 	local memory_contents
 	if type(params.memory) == "string" then
 		memory_contents = {}
@@ -56,6 +53,11 @@ local function build_internal(params, params_name)
 		end
 	elseif params.memory ~= nil then
 		check.table(("%s.memory"):format(params_name), params.memory)
+		local index = 0
+		while params.memory[index] do
+			check.integer_range(("%s.memory[0x%08X]"):format(params_name, index), params.memory[index], 0, 0xFFFFFFFF)
+			index = index + 1
+		end
 		memory_contents = params.memory
 	end
 	local core_types = {}

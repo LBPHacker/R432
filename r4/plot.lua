@@ -42,7 +42,9 @@ local function place_components(x_top, y_top, components_name, components, debug
 		end
 		name_to_component_index[component.name] = ix_component
 		if component.type == "cpu" then
-			check.integer_range(component_name .. ".memory_base", component.memory_base, 0, r4_check.address_max)
+			if component.start_pc ~= nil then
+				r4_check.base_address(component_name .. ".start_pc", component.start_pc, 0xFFFFFFFC)
+			end
 			r4_check.base_address(component_name .. ".memory_base", component.memory_base, memory_mask)
 			component.memory_mask = memory_mask
 			component.mmio_ranges = {}

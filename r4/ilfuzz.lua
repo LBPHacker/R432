@@ -635,7 +635,7 @@ local function run(params)
 		for i = 1, reg_count - 1 do
 			set_reg(i, random32())
 		end
-		set_pc(random32())
+		set_pc(bitx.band(random32(), 0xFFFFFFFC))
 		set_started(random_between(1, 10) == 1)
 		set_mulstate(0x0000000F, 0x00000000) -- TODO: pick something really random; but it's hard, screw it
 		sync_head()
@@ -726,6 +726,9 @@ local function run(params)
 		end
 	end
 
+	if sim.threads then
+		sim.threads(0)
+	end
 	tick = modulepack.xpcall_wrap(tick)
 	aftersim = modulepack.xpcall_wrap(aftersim)
 	event.register(event.TICK, tick)

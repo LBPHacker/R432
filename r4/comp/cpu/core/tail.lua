@@ -8,29 +8,35 @@ local address     = require("r4.comp.cpu.core.address")    .instantiate()
 local regs        = require("r4.comp.cpu.core.regs")       .instantiate()
 
 return testbed.module(function(params)
+	local param_debug = params.debug == "y"
+	local storage_slots = param_debug and 130 or 94
+	local opt_params = {
+		temp_initial  = 1,
+		temp_final    = 0.5,
+		temp_loss     = 1e-6,
+	}
+	if not param_debug then
+		opt_params.seed          = { 0x56789ABC, 0x87654324 }
+		opt_params.work_slot_overhead_penalty = 30
+		opt_params.thread_count        = 4
+		opt_params.round_length        = 10000
+		opt_params.rounds_per_exchange = 10
+		opt_params.schedule = {
+			durations    = {  500000, 1000000, 3000000,        },
+			temperatures = {      10,       2,       1,    0.5 },
+		}
+	end
+
 	local unit_last = unit.instantiate({ unit_type = "l" }, "?")
 
 	return {
 		tag = "core.head",
-		opt_params = {
-			temp_initial  = 1,
-			temp_final    = 0.5,
-			temp_loss     = 1e-6,
-			seed          = { 0x56789ABC, 0x87654324 },
-			work_slot_overhead_penalty = 30,
-			thread_count        = 8,
-			round_length        = 10000,
-			rounds_per_exchange = 10,
-			schedule = {
-				durations    = { 1000000, 2000000, 6000000,        },
-				temperatures = {      10,       2,       1,    0.5 },
-			},
-		},
+		opt_params = opt_params,
 		stacks        = 2,
-		storage_slots = 94,
+		storage_slots = storage_slots,
 		work_slots    = 25,
 		inputs = {
-			{ name = "pc_lo"   , index = 93, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "pc_lo"   , index = 93, keepalive = 0x10000000, payload = 0x0000FFFC, initial = 0x10000000 },
 			{ name = "pc_hi"   , index = 94, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "shutdown", index = 70, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
 			{ name = "start"   , index = 55, keepalive = 0x10000000, payload = 0x00000003, initial = 0x10000000 },
@@ -41,7 +47,7 @@ return testbed.module(function(params)
 			{ name = "instr"   , index = 75, keepalive = 0x00000001, payload = 0xFFFFFFFE, initial = 0x00000001 },
 		},
 		outputs = {
-			{ name = "pc_lo"           , index = 91, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "pc_lo"           , index = 91, keepalive = 0x10000000, payload = 0x0000FFFC },
 			{ name = "pc_hi"           , index = 92, keepalive = 0x10000000, payload = 0x0000FFFF },
 			{ name = "shutdown"        , index = 86, keepalive = 0x10000000, payload = 0x00000001 },
 			{ name = "addr_lo"         , index = 70, keepalive = 0x10000000, payload = 0x03FFFFFF },
@@ -109,7 +115,7 @@ return testbed.module(function(params)
 			local res_lo_addr_hi = res_lo:bor(spaghetti.lshiftk(address_outputs.sum_hi:bsub(0xFF):bor(0x100000), 8))
 			                             :bor(spaghetti.lshiftk(memmode:bor(0x10), 24))
 			return {
-				pc_lo            = pc_lo,
+				pc_lo            = pc_lo:bsub(3),
 				pc_hi            = pc_hi,
 				shutdown         = inputs.shutdown:bor(instr_hlt:bxor(1)):bsub(inputs.start):bor(spaghetti.rshiftk(inputs.start, 1)):bor(0x10000000):band(0x10000001),
 				addr_lo          = addr_lo,
@@ -124,7 +130,7 @@ return testbed.module(function(params)
 		end,
 		fuzz_inputs = function()
 			return {
-				pc_lo    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				pc_lo    = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
 				pc_hi    = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				shutdown = bitx.bor(math.random(0x0000, 0x0001), 0x10000000),
 				start    = bitx.bor(math.random(0x0000, 0x0003), 0x10000000),
@@ -229,7 +235,7 @@ return testbed.module(function(params)
 			local res_lo_addr_hi = bitx.bor(res_lo_addr_hi, 0x10000000)
 			local res_hi         = res_hi
 			return {
-				pc_lo            = pc_lo,
+				pc_lo            = bitx.band(pc_lo, 0x1000FFFC),
 				pc_hi            = pc_hi,
 				shutdown         = shutdown and 0x10000001 or 0x10000000,
 				addr_lo          = addr_lo,

@@ -7,12 +7,31 @@ local instr_split     = require("r4.comp.cpu.core.instr_split")    .instantiate(
 local regs            = require("r4.comp.cpu.core.regs")           .instantiate()
 
 return testbed.module(function(params)
+	local param_debug = params.debug == "y"
+	local storage_slots = param_debug and 130 or 98
+	local opt_params = {
+		temp_initial = 1,
+		temp_final   = 0.5,
+		temp_loss    = 1e-6,
+	}
+	if not param_debug then
+		opt_params.seed          = { 0x56789ABC, 0x8765432A }
+		opt_params.work_slot_overhead_penalty = 30
+		opt_params.thread_count        = 4
+		opt_params.round_length        = 10000
+		opt_params.rounds_per_exchange = 10
+		opt_params.schedule = {
+			durations    = {  500000, 1000000, 3000000,        },
+			temperatures = {      10,       2,       1,    0.5 },
+		}
+	end
+
 	local unit_first = unit.instantiate({ unit_type = "f" }, "?")
 	local unit_middle = unit.instantiate({ unit_type = "m" }, "?")
 
 	local units = 3
 	local inputs = {
-		{ name = "pc_lo"           , index = 62, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+		{ name = "pc_lo"           , index = 62, keepalive = 0x10000000, payload = 0x0000FFFC, initial = 0x10000000 },
 		{ name = "pc_hi"           , index = 64, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		{ name = "defer"           , index = 66, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000001 },
 		{ name = "lhs_lo_" .. units, index = 85, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
@@ -25,7 +44,7 @@ return testbed.module(function(params)
 		{ name = "mul_prev_hi"     , index = 76, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 	}
 	local outputs = {
-		{ name = "pc_lo"                   , index = 89, keepalive = 0x10000000, payload = 0x0000FFFF },
+		{ name = "pc_lo"                   , index = 89, keepalive = 0x10000000, payload = 0x0000FFFC },
 		{ name = "pc_hi"                   , index = 90, keepalive = 0x10000000, payload = 0x0000FFFF },
 		{ name = "lhs_lo_" .. units        , index = 67, keepalive = 0x10000000, payload = 0x0000FFFF },
 		{ name = "lhs_hi_" .. units        , index = 68, keepalive = 0x10000000, payload = 0x0000FFFF },
@@ -46,22 +65,9 @@ return testbed.module(function(params)
 	end
 	return {
 		tag = "core.head",
-		opt_params = {
-			temp_initial  = 1,
-			temp_final    = 0.5,
-			temp_loss     = 1e-6,
-			seed          = { 0x56789ABC, 0x8765432A },
-			work_slot_overhead_penalty = 30,
-			thread_count        = 8,
-			round_length        = 10000,
-			rounds_per_exchange = 10,
-			schedule = {
-				durations    = { 1000000, 2000000, 6000000,        },
-				temperatures = {      10,       2,       1,    0.5 },
-			},
-		},
+		opt_params    = opt_params,
 		stacks        = 5,
-		storage_slots = 98,
+		storage_slots = storage_slots,
 		work_slots    = 25,
 		inputs        = inputs,
 		outputs       = outputs,
@@ -151,7 +157,7 @@ return testbed.module(function(params)
 		end,
 		fuzz_inputs = function()
 			local inputs = {
-				pc_lo                  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				pc_lo                  = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
 				pc_hi                  = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				defer                  = bitx.bor(math.random(0x0000, 0x0001), 0x10000000),
 				[ "lhs_lo_" .. units ] = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),

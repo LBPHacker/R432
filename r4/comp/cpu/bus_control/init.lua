@@ -17,9 +17,9 @@ return testbed.module(function(params)
 		storage_slots = 30,
 		work_slots    = 9,
 		inputs = {
-			{ name = "pc_lo"         , index = 23, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "pc_lo"         , index = 23, keepalive = 0x10000000, payload = 0x0000FFFC, initial = 0x10000000 },
 			{ name = "pc_hi"         , index = 24, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
-			{ name = "pc_lo_prev"    , index = 25, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "pc_lo_prev"    , index = 25, keepalive = 0x10000000, payload = 0x0000FFFC, initial = 0x10000000 },
 			{ name = "pc_hi_prev"    , index = 26, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 			{ name = "addr_lo"       , index = 21, keepalive = 0x10000000, payload = 0x03FFFFFF, initial = 0x10000000 },
 			{ name = "bus_lo"        , index = 15, keepalive = 0x10000000, payload = 0x0003FFFF, initial = 0x10000000 },
@@ -27,10 +27,10 @@ return testbed.module(function(params)
 			{ name = "mul_failed"    , index = 27, keepalive = 0x10000000, payload = 0x00000001, initial = 0x10000000 },
 		},
 		outputs = {
-			{ name = "pc_lo"         , index = 14, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "pc_lo"         , index = 14, keepalive = 0x10000000, payload = 0x0000FFFC },
 			{ name = "pc_hi"         , index = 16, keepalive = 0x10000000, payload = 0x0000FFFF },
 			{ name = "pc_row"        , index = 29, keepalive = 0x10000000, payload = 0x0000007F },
-			{ name = "addr_combined" , index = 30, keepalive = 0x10000000, payload = 0x01FFFFFF },
+			{ name = "addr_combined" , index = 30, keepalive = 0x10000000, payload = 0x01FCFFFF },
 		},
 		func = function(inputs)
 			local pc_lo, pc_hi = spaghetti.select(
@@ -63,9 +63,9 @@ return testbed.module(function(params)
 		end,
 		fuzz_inputs = function()
 			return {
-				pc_lo      = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				pc_lo      = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
 				pc_hi      = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
-				pc_lo_prev = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
+				pc_lo_prev = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), 0x10000000),
 				pc_hi_prev = bitx.bor(math.random(0x0000, 0xFFFF), 0x10000000),
 				addr_lo    = bitx.bor(math.random(0x00000000, 0x03FFFFFF), 0x10000000),
 				bus_lo     = bitx.bor(math.random(0x00000000, 0x0003FFFF), 0x10000000),

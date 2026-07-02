@@ -276,14 +276,14 @@ function emu_context_i:eu_(ix_eu)
 				break
 			end
 			rd_value = next_pc
-			next_pc = clamp32(self.pc + imm_j(instr))
+			next_pc = bitx.band(clamp32(self.pc + imm_j(instr)), 0xFFFFFFFC)
 		elseif bitx.band(instr, 0x0000005C) == 0x00000044 then
 			if not last_subeu then
 				defer(false) -- not the last sub-EU
 				break
 			end
 			rd_value = next_pc
-			next_pc = clamp32(self.regs[rs1] + imm_i(instr))
+			next_pc = bitx.band(clamp32(self.regs[rs1] + imm_i(instr)), 0xFFFFFFFC)
 		elseif bitx.band(instr, 0x0000005C) == 0x00000040 then
 			if cond_op(
 				bitx.band(bitx.rshift(instr, 12), 7),
@@ -294,7 +294,7 @@ function emu_context_i:eu_(ix_eu)
 					defer(false) -- not the last sub-EU
 					break
 				end
-				next_pc = clamp32(self.pc + imm_b(instr))
+				next_pc = bitx.band(clamp32(self.pc + imm_b(instr)), 0xFFFFFFFC)
 			end
 		elseif bitx.band(instr, 0x00000070) == 0x00000020 then
 			if not last_subeu then

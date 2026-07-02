@@ -17,11 +17,11 @@ return testbed.module(function(params)
 		storage_slots = 40,
 		work_slots    = 20,
 		inputs = {
-			{ name = "lo", index = 1, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
+			{ name = "lo", index = 1, keepalive = 0x10000000, payload = 0x0000FFFC, initial = 0x10000000 },
 			{ name = "hi", index = 3, keepalive = 0x10000000, payload = 0x0000FFFF, initial = 0x10000000 },
 		},
 		outputs = {
-			{ name = "lo", index = 1, keepalive = 0x10000000, payload = 0x0000FFFF },
+			{ name = "lo", index = 1, keepalive = 0x10000000, payload = 0x0000FFFC },
 			{ name = "hi", index = 3, keepalive = 0x10000000, payload = 0x0000FFFF },
 		},
 		func = function(inputs)
@@ -33,7 +33,7 @@ return testbed.module(function(params)
 			}
 		end,
 		fuzz_inputs = function()
-			local value = bitx.bor(math.random(0x0000, 0xFFFF), bitx.lshift(math.random(0x0000, 0xFFFF), 16))
+			local value = bitx.bor(bitx.lshift(math.random(0x0000, 0x3FFF), 2), bitx.lshift(math.random(0x0000, 0xFFFF), 16))
 			local random = math.random(0, 15)
 			if random < 5 then
 				value = (random - 3) * 4
