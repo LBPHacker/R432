@@ -929,7 +929,7 @@ local function build(params, params_name, component)
 					cumulative = want
 				end
 				if spark_type then
-					spark({ type = spark_type, x = x_bank + i - 1, y = y_bank - 1 })
+					spark({ type = spark_type, x = x_bank + i - 1, y = y_bank - 1, life = 3 })
 				else
 					part({ type = pt.FILT, x = x_bank + i - 1, y = y_bank - 1 })
 				end

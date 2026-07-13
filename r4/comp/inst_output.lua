@@ -24,7 +24,7 @@ local function build(params, params_name, component)
 	else
 		xoff = params.x.value - width + 1
 	end
-	local x_base = xoff
+	local x_base = xoff + 2
 	local y_base = params.bus.y
 
 	local peripheral_base = params.base_address
@@ -39,7 +39,7 @@ local function build(params, params_name, component)
 	local spark = ucontext.spark
 
 	local filt_output_parts = filt_output.build_internal({
-		x               = xoff,
+		x               = xoff + 2,
 		debug_stacks    = params.debug_stacks,
 		bus             = params.bus,
 		peripheral_mask = peripheral_mask,
@@ -147,7 +147,7 @@ local function build(params, params_name, component)
 	local interface = {
 		type = "solid",
 		name = "body",
-		x    = xoff - 2,
+		x    = xoff,
 		y    = params.bus.y - 8,
 		w    = width + 2,
 		h    = 21,

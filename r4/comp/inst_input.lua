@@ -68,7 +68,7 @@ local function build(params, params_name, component)
 		local last = math.min(params.bits, 16) - 1
 		local func_last = math.max(last, 15)
 
-		aray(x_base - 1, y_base + 9, -1, 0, pt.METL, nil, 1000)
+		aray(x_base - 1, y_base + 9, -1, 0, pt.INST, nil, 1000)
 		part({ type = pt.FILT, x = x_base, y = y_base + 9, ctype = 0x10000000 })
 		local x_end = x_base + func_last * 2 + 2
 		do
@@ -111,6 +111,16 @@ local function build(params, params_name, component)
 		for x = x_piston - 12, x_piston - 5 do
 			part({ type = pt.FILT, x = x, y = y_piston    , tmp = 2, ctype = 0x10000000 })
 			part({ type = pt.FILT, x = x, y = y_piston + 1, tmp = 2, ctype = 0x10000000 })
+		end
+		do
+			part({ type = pt.CONV, x = x_piston - 12, y = y_piston - 1, tmp = pt.HEAC, ctype = pt.FILT })
+			local target = part({ type = pt.HEAC, x = x_piston - 12, y = y_piston - 1 })
+			part({ type = pt.HEAC, x = target.x, y = target.y + 3 })
+			part({ type = pt.CONV, x = target.x, y = target.y + 4, tmp = pt.PSCN, ctype = pt.SPRK })
+			part({ type = pt.LSNS, x = target.x, y = target.y + 4, tmp = 3 })
+			part({ type = pt.FILT, x = target.x + 1, y = target.y + 4, ctype = 0x10000003 })
+			dray(target.x, target.y + 4, target.x, target.y, 1, false)
+			cray(target.x, target.y - 7, target.x, target.y + 5, pt.PSCN, 1, pt.PSCN)
 		end
 		dray(x_piston - 12, y_base - 3, x_piston - 12, y_piston, 2, pt.PSCN)
 		dray(x_piston -  4, y_base - 1, x_piston -  4, y_piston, 2, pt.PSCN)

@@ -52,7 +52,7 @@ local function build(params)
 			part({ type = pt.FILT, x = x_top + x, y = y_top + 4, unstack = true })
 		end
 
-		ldtc(x_top + 2, y_top, bus_0_in.x, bus_0_in.y)
+		ldtc(x_top + 2, y_top, bus_0_in.x, bus_0_in.y, nil, 1)
 		aray(x_top + 2, y_top, -1, 0, pt.METL, nil, 1)
 
 		part({ type = pt.FILT, x = x_top +  3, y = y_top })
@@ -66,7 +66,7 @@ local function build(params)
 		part({ type = pt.BRAY, x = x_top + 10, y = y_top, life = 1 })
 		part({ type = pt.DMND, x = x_top + 11, y = y_top })
 
-		ldtc(x_top + 1, y_top + 1, bus_1_in.x, bus_1_in.y)
+		ldtc(x_top + 1, y_top + 1, bus_1_in.x, bus_1_in.y, nil, 1)
 		aray(x_top + 1, y_top + 1, -1, 0, pt.METL, nil, 1)
 
 		part ({ type = pt.FILT, x = x_top +  2, y = y_top + 1 })
