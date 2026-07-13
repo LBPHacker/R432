@@ -2,7 +2,7 @@
 
 *What's as big as half the simulation area, burns tens of thousands of your particle budget, puts out a load of EHOLE and particle ID allocation noise, and cuts BODY V5 into three pieces? A TPT computer made to cut BODY V5 into four pieces!*
 
-![the showcase save](REFTODO)
+![the showcase save](../showcase.png)
 
 Check out [the showcase save][004] in your browser. This is an R4A0416M, see [Numbering scheme](#numbering-scheme) below. Come and discuss it on the [Subframe Discord Server][001], an official branch of the [TPT Discord Server][002] that happened to be created earlier. Feel free to suggest improvements for this manual, the computers, or their peripherals.
 
@@ -576,7 +576,41 @@ Encoding:
 
 # Example saves
 
-REFTODO
+## Example #1
+
+[Small computer with small terminal](https://powdertoy.co.uk/Browse/View.html?ID=3394860)
+
+ - machine ID: 1000
+ - memory rows: 16
+ - EUs: MI
+ - memory base: `0x400000`
+ - initial `pc`: `0x400000`
+ - terminal base: `0x40E02000`
+
+## Example #2
+
+[Big computer with big terminal](https://powdertoy.co.uk/Browse/View.html?ID=3394861)
+
+ - machine ID: 1000
+ - memory rows: 64
+ - EUs: MIMII
+ - memory base: `0x400000`
+ - initial `pc`: `0x400000`
+ - terminal base: `0x40E02000`
+
+## Example #3
+
+[Tiny computer with INST I/O](https://powdertoy.co.uk/Browse/View.html?ID=3394862)
+
+ - machine ID: 1000
+ - memory rows: 4
+ - EUs: M
+ - memory base: `0x400000`
+ - initial `pc`: `0x400000`
+ - INST input base: `0xE0040000`
+ - INST input width: 16
+ - INST output base: `0xE0050000`
+ - INST output width: 16
 
 # Peripherals and configuration
 
@@ -1523,5 +1557,5 @@ Integers, exactly one of the two required. This determines the horizontal placem
 [003]: https://github.com/LBPHacker/tptasm
 	"TPTASM GitHub repository"
 
-[004]: https://example.com/REFTODO
+[004]: https://powdertoy.co.uk/Browse/View.html?ID=3399886
 	"R4 showcase save"
