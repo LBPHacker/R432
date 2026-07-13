@@ -2,7 +2,7 @@
 
 *What's as big as half the simulation area, burns tens of thousands of your particle budget, puts out a load of EHOLE and particle ID allocation noise, and cuts BODY V5 into three pieces? A TPT computer made to cut BODY V5 into four pieces!*
 
-![the showcase save](../showcase.png)
+![the showcase save](./showcase.png)
 
 Check out [the showcase save][004] in your browser. This is an R4A0416M, see [Numbering scheme](#numbering-scheme) below. Come and discuss it on the [Subframe Discord Server][001], an official branch of the [TPT Discord Server][002] that happened to be created earlier. Feel free to suggest improvements for this manual, the computers, or their peripherals.
 
