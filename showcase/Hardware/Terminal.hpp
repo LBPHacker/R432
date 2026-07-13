@@ -1,5 +1,5 @@
 #pragma once
-#include <stdint.h>
+#include <cstdint>
 
 struct Terminal
 {
@@ -10,9 +10,9 @@ struct Terminal
 	}
 
 	using Colour = uint32_t;
-	static constexpr Colour MakeColour(uint32_t background, uint32_t foreground)
+	static constexpr Colour MakeColour(uint32_t foreground, uint32_t background)
 	{
-		return background | (foreground << 4);
+		return foreground | (background << 4);
 	}
 
 	using CursorPosition = uint32_t;

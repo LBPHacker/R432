@@ -282,7 +282,7 @@ So I have bad news and good news.
 
 The bad news are that in order to target a computer, including these computers, with a real-life toolchain, one must find a compatible toolchain, write a linker script to explain the memory map of the computer to the toolchain, and write a bunch of other scripts to actually get code to compile and to extract said code from whatever container format the toolchain outputs.
 
-The good news is that [I have done all this for you](./examples). The examples there are all C++, but I am sure the infrastructure is possible to adapt to other high-level languages that the toolchain supports.
+The good news is that [I have a working setup for you](./showcase). The showcase is in C++, but I am sure the infrastructure is possible to adapt to other high-level languages that the toolchain supports.
 
 # Instruction reference
 
