@@ -659,6 +659,102 @@ loadfile("/path/to/r4plot.lua")({
 })
 ```
 
+The showcase save was built with the following configuration:
+
+```lua
+{
+	{
+		type        = "cpu",
+		name        = "cpu0",
+		cores       = "mimi",
+		memory_rows = 16,
+		left        = 13,
+		top         = 36,
+		machine_id  = 1000,
+		memory_base = 0x400000,
+		start_pc    = 0x400000,
+	},
+	{
+		type          = "terminal",
+		name          = "terminal0",
+		left          = 210,
+		screen_bottom = 76,
+		keyboard_top  = 125,
+		chars_nh      = 12,
+		chars_nv      = 8,
+		grvt_cover    = true,
+		single_pixel  = true,
+		base_address  = 0xE0010000,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 1,
+		},
+	},
+	{
+		type          = "filt_input",
+		name          = "filt_input0",
+		left          = 422,
+		base_address  = 0xE0020000,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 1,
+		},
+	},
+	{
+		type          = "filt_output",
+		name          = "filt_output0",
+		left          = 370,
+		base_address  = 0xE0030000,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 1,
+		},
+	},
+	{
+		type          = "inst_input",
+		name          = "inst_input0",
+		left          = 422,
+		base_address  = 0xE0040000,
+		bits          = 16,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 3,
+		},
+	},
+	{
+		type          = "inst_output",
+		name          = "inst_output0",
+		left          = 370,
+		base_address  = 0xE0050000,
+		bits          = 16,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 3,
+		},
+	},
+	{
+		type          = "random_source",
+		name          = "random_source0",
+		left          = 277,
+		base_address  = 0xE0060000,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 1,
+		},
+	},
+	{
+		type          = "frame_clock",
+		name          = "frame_clock0",
+		left          = 240,
+		base_address  = 0xE0070000,
+		bus = {
+			cpu       = "cpu0",
+			bus_index = 1,
+		},
+	},
+}
+```
+
 ## Top-level configuration structure
 
 Table, required. This is the first and only parameter to *r4plot.lua*.
