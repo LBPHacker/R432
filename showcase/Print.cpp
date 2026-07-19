@@ -23,7 +23,7 @@ void PrintClear()
 	printCursorX = 0;
 	printCursorY = 0;
 	terminal.colour = Terminal::MakeColour(printColourFg, printColourBg);
-	for (uint32_t i = 0; i < 8; ++i)
+	for (uint32_t i = 0; i < terminalHeight; ++i)
 	{
 		terminal.Scrollprint(Terminal::enableScrollmask, ' ');
 	}
