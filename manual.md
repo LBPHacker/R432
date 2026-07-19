@@ -153,7 +153,7 @@ Ultimately, `pc` is increased by the number of instructions successfully execute
 
 These computers communicate with the outside world primarily through the memory buses of their EUs. Each EU has a memory bus, though it is conventional to connect peripherals to only one of these buses and leave the others unused. For this reason, and also for the sake of brevity, the buses of all EUs are collectively also referred to as the bus.
 
-They also have some buttons and an indicator, which serve the much less critical purpose of turning the computer and and off and similar, and reporting its "is it on" state.
+They also have some buttons and an indicator, which serve the much less critical purpose of turning the computer on and off and similar, and reporting its "is it on" state.
 
 ### The buttons and the indicator
 
@@ -291,7 +291,7 @@ The good news is that [I have a working setup for you](./showcase). The showcase
 
 Behavioural details match those in the [RISC-V specification][000] exactly, but encoding details slightly differ: due to the relatively lax decoding rules these computers implement, many instructions have `X` bits in their encoding that can be either `0` or `1` without effect on the instruction's interpretation.
 
-Groups of instructions in this section are listed in encoding order. For the purpose of encoding:
+Groups of instructions in this section are listed in encoding order. For the purpose of ordering:
 
  - `X` and operand bits are treated as if they are `0`;
  - higher order bits are prioritized above lower order bits;
