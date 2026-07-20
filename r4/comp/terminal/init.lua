@@ -1558,9 +1558,10 @@ local function build(params, params_name, component)
 				local source_4 = part({ type = pt.FILT, x = x_plotter - 8, y = y_plotter - 11, tmp = 1 })
 				ldtc(source_4.x, source_4.y - 1, source_3.x, source_3.y)
 				dray(source_4.x - 1, source_4.y - 1, source_4.x + 8, source_4.y + 8, 1, pt.PSCN)
-				local source_5 = part({ type = pt.FILT, x = x_plotter - 8, y = y_end - 11 })
+				local source_5  = part({ type = pt.FILT, x = x_plotter - 8, y = y_end - 29 })
+				local source_5a = part({ type = pt.FILT, x = x_plotter - 8, y = y_end - 28, tmp = 3 })
+				dray(source_5a.x - 1, source_5a.y - 1, source_5a.x + 14, source_5a.y + 14, 1, pt.PSCN)
 				ldtc(source_5.x, source_5.y - 1, source_3.x, source_3.y)
-				ldtc(source_5.x + 10, source_5.y + 10, source_5.x, source_5.y)
 				local source_6 = part({ type = pt.FILT, x = x_plotter - 8, y = y_end + 9 })
 				ldtc(source_6.x, source_6.y - 1, source_3.x, source_3.y)
 				ldtc(source_6.x - 2, source_6.y + 2, source_6.x, source_6.y)
@@ -1657,7 +1658,7 @@ local function build(params, params_name, component)
 				end
 			end
 
-			do -- column-row select
+			do -- column-column select
 				local x_stack = x_plotter + 3
 				local y_stack = y_plotter + rows + 19
 				local y_top   = y_stack - 7 - size_bh * block_size
@@ -1696,63 +1697,65 @@ local function build(params, params_name, component)
 					cray(target.x, y_stack - 1, target.x, target.y, pt.CRMC, 1, pt.PSCN)
 					cray(source.x, y_stack - 1, source.x, source.y, pt.CRMC, 1, pt.PSCN)
 				end
-				spark({ type = pt.PSCN, x = x_stack + 2, y = y_stack - 20, life = 3 })
-				part ({ type = pt.LSNS, x = x_stack + 3, y = y_stack - 20, tmp = 3 })
-				part ({ type = pt.FILT, x = x_stack + 3, y = y_stack - 19, ctype = 0x10000003 })
-				part ({ type = pt.FRME, x = x_stack + 1, y = y_stack - 19 })
-				part ({ type = pt.FRME, x = x_stack + 2, y = y_stack - 19 })
-				part ({ type = pt.DMND, x = x_stack    , y = y_stack - 18 })
-				part ({ type = pt.PSTN, x = x_stack + 2, y = y_stack - 18, extend = 1 })
-				part ({ type = pt.PSTN, x = x_stack + 2, y = y_stack - 10 })
-				part ({ type = pt.PSTN, x = x_stack + 2, y = y_stack -  9 })
-				part ({ type = pt.PSTN, x = x_stack + 2, y = y_stack -  8, extend = math.huge, tmp = 2 })
-				part ({ type = pt.INSL, x = x_stack + 2, y = y_stack -  7 })
-				local bit_filt = part({ type = pt.FILT, x = x_stack    , y = y_stack + 13, ctype = 0x400 })
+				do
+					local p = spark({ type = pt.PSCN, x = x_stack + 2, y = y_stack - 20, life = 3 })
+					spark_row(p.x - 11, p.y, p.x, p.y, pt.PSCN, 1, 3, 3)
+				end
+
+				part({ type = pt.FRME, x = x_stack + 1, y = y_stack - 19 })
+				part({ type = pt.FRME, x = x_stack + 2, y = y_stack - 19 })
+				part({ type = pt.PSTN, x = x_stack + 2, y = y_stack - 18, extend = 1 })
+				part({ type = pt.PSTN, x = x_stack + 2, y = y_stack - 10 })
+				part({ type = pt.PSTN, x = x_stack + 2, y = y_stack -  9 })
+				part({ type = pt.PSTN, x = x_stack + 2, y = y_stack -  8, extend = math.huge, tmp = 2 })
+				part({ type = pt.INSL, x = x_stack + 2, y = y_stack -  7 })
+
+				solid_spark(x_stack + 3, y_stack - 7, 0, -1, pt.NSCN)
+			end
+
+			do -- column-row select
+				local x_stack = x_plotter + 6
+				local y_stack = y_plotter + rows - 8
+
+				part({ type = pt.DMND, x = x_stack, y = y_stack + 17 })
+				local bit_filt = part({ type = pt.FILT, x = x_stack, y = y_stack - 2, ctype = 0x40000 })
 
 				local function change_conductor(conductor, from)
 					part({ type = pt.CONV, x = x_stack, y = y_stack, ctype = conductor, tmp = from or pt.SPRK })
 					part({ type = pt.CONV, x = x_stack, y = y_stack, ctype = pt.SPRK, tmp = conductor })
-					part({ type = pt.LSNS, x = x_stack, y = y_stack, tmp = 3, tmp2 = 2 })
+					part({ type = pt.LSNS, x = x_stack, y = y_stack, tmp = 3, tmp2 = 4 })
 				end
 
-				part({ type = pt.CONV, x = x_stack, y = y_stack, tmp = pt.SPRK, ctype = pt.CRMC })
-				change_conductor(pt.PSCN, pt.HEAC)
-				part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 7, tmp2 = 10, ctype = pt.SPRK })
-				part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 6, tmp2 = 10, ctype = pt.STOR })
+				part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 7, tmp2 = 9, ctype = pt.SPRK })
+				part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 6, tmp2 = 9, ctype = pt.STOR })
 				ldtc(x_stack, y_stack, bit_filt.x, bit_filt.y)
 				for i = 0, 6 do
-					spark({ type = pt.PSCN, x = x_stack    , y = y_stack - 17 + i })
-					part ({ type = pt.PSTN, x = x_stack + 2, y = y_stack - 17 + i, extend = bitx.lshift(1, math.max(0, i - 1)) })
+					spark({ type = pt.PSCN, x = x_stack    , y = y_stack + 16 - i })
+					part ({ type = pt.PSTN, x = x_stack - 1, y = y_stack + 16 - i, extend = bitx.lshift(1, math.max(0, 5 - i)) })
 
 					change_conductor(pt.INST)
 					part({ type = pt.ARAY, x = x_stack, y = y_stack, life = 1000 })
-					part({ type = pt.DRAY, x = x_stack, y = y_stack, tmp = 2, tmp2 = 13 - i })
+					part({ type = pt.DRAY, x = x_stack, y = y_stack, tmp = 2, tmp2 = 12 - i })
 					part({ type = pt.DTEC, x = x_stack, y = y_stack, tmp2 = 5 })
 					change_conductor(pt.PSCN)
 					if i < 6 then
-						part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 1, tmp2 = 15 - i, ctype = pt.SPRK })
+						part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 1, tmp2 = 14 - i, ctype = pt.SPRK })
 					end
 					part({ type = pt.CRAY, x = x_stack, y = y_stack, tmp = 1, tmp2 = 4, ctype = pt.SPRK })
 				end
-				part({ type = pt.CONV, x = x_stack, y = y_stack, tmp = pt.SPRK, ctype = pt.HEAC })
-				part({ type = pt.CONV, x = x_stack, y = y_stack, tmp = pt.CRMC, ctype = pt.PSCN })
-				part({ type = pt.CONV, x = x_stack, y = y_stack, tmp = pt.PSCN, ctype = pt.SPRK })
-
-				solid_spark(x_stack + 3, y_stack - 7, 0, -1, pt.NSCN)
-				part ({ type = pt.STOR, x = x_stack    , y = y_stack - 10 })
-				part ({ type = pt.STOR, x = x_stack    , y = y_stack -  9 })
-				part ({ type = pt.STOR, x = x_stack    , y = y_stack -  8 })
-				part ({ type = pt.FILT, x = x_stack    , y = y_stack -  7, tmp =  3, ctype = 0x1000DEAD })
-				part ({ type = pt.FILT, x = x_stack    , y = y_stack -  4, tmp = 10, ctype = 2 })
-				part ({ type = pt.CONV, x = x_stack - 1, y = y_stack -  3, tmp = pt.SPRK, ctype = pt.CRMC, z = 1000 })
-				spark({ type = pt.PSCN, x = x_stack    , y = y_stack -  2 })
-				part ({ type = pt.CONV, x = x_stack - 1, y = y_stack -  1, tmp = pt.CRMC, ctype = pt.PSCN })
-				part ({ type = pt.CONV, x = x_stack - 1, y = y_stack -  1, tmp = pt.PSCN, ctype = pt.SPRK })
-				part ({ type = pt.FILT, x = x_stack    , y = y_stack -  1 })
-				part ({ type = pt.HEAC, x = x_stack    , y = y_stack +  1 })
-				part ({ type = pt.FILT, x = x_stack + 2, y = y_stack +  1, ctype = 0x10000003 })
-				part ({ type = pt.CONV, x = x_stack + 3, y = y_stack -  4, tmp = pt.BRAY, ctype = pt.STOR, z = 1000 })
-				part ({ type = pt.CONV, x = x_stack + 5, y = y_stack -  1, tmp = pt.BRAY, ctype = pt.STOR, z = 1000 })
+				part ({ type = pt.CONV, x = x_stack, y = y_stack    , tmp = pt.SPRK, ctype = pt.PSCN })
+				part ({ type = pt.CONV, x = x_stack, y = y_stack    , tmp = pt.PSCN, ctype = pt.SPRK })
+				part ({ type = pt.STOR, x = x_stack, y = y_stack + 7 })
+				part ({ type = pt.STOR, x = x_stack, y = y_stack + 8 })
+				part ({ type = pt.STOR, x = x_stack, y = y_stack + 9 })
+				part ({ type = pt.FILT, x = x_stack, y = y_stack + 6, tmp =  3, ctype = 0x1000DEAD })
+				part ({ type = pt.FILT, x = x_stack, y = y_stack + 4, tmp =  6, ctype = 0x10000003 })
+				part ({ type = pt.FILT, x = x_stack, y = y_stack + 3, tmp = 11, ctype = 2 })
+				part ({ type = pt.CONV, x = x_stack, y = y_stack + 2, tmp = pt.SPRK, ctype = pt.PSCN })
+				part ({ type = pt.CONV, x = x_stack, y = y_stack + 2, tmp = pt.PSCN, ctype = pt.SPRK })
+				spark({ type = pt.PSCN, x = x_stack, y = y_stack + 2 })
+				part ({ type = pt.FILT, x = x_stack, y = y_stack + 1 })
+				spark({ type = pt.PSCN, x = x_stack, y = y_stack - 1 })
 			end
 
 			do -- row select
