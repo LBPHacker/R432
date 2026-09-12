@@ -24,7 +24,7 @@ impl<'a> Printer<'a> {
             cursor_x: 0,
             cursor_y: 0,
             colour_fg: Colour::C15,
-            colour_bg: Colour::C1,
+            colour_bg: Colour::C0,
             width,
             height,
         }
@@ -32,6 +32,7 @@ impl<'a> Printer<'a> {
 
     pub fn init(&mut self) {
         self.terminal.reset_keyboard();
+        self.terminal.set_cell_colour(self.fg(), self.bg());
         self.terminal.set_horizontal_range(0, self.width - 1);
         self.terminal.set_vertical_range(0, self.height - 1);
         self.terminal.set_cursor_position(0, 0);
@@ -40,7 +41,6 @@ impl<'a> Printer<'a> {
     }
 
     pub fn clear(&mut self) {
-        self.set_colour(Colour::C15, Colour::C0);
         self.set_cursor(0, 0);
 
         for _ in 0..self.height {

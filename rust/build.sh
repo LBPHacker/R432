@@ -4,6 +4,7 @@ set -euo pipefail
 TARGET="riscv32i-unknown-none-elf"
 PROFILE="release"
 NAME="showcase"
+OBJCOPY="rust-objcopy"
 
 cargo build --release --target "${TARGET}"
 
@@ -11,7 +12,7 @@ ELF="target/${TARGET}/${PROFILE}/${NAME}"
 BIN="target/${TARGET}/${PROFILE}/${NAME}.bin"
 
 echo "==> Converting ELF to binary..."
-riscv32-none-elf-objcopy \
+"$OBJCOPY" \
     -O binary \
     "${ELF}" \
     "${BIN}"

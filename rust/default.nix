@@ -2,17 +2,13 @@
 pkgs.mkShell {
   packages = with pkgs; [
     rustup
-
-    # RISC-V bare-metal toolchain
-    pkgsCross.riscv32-embedded.stdenv.cc
-
-    stdenv.cc
+    cargo-binutils
   ];
+
 
   shellHook = ''
     rustup toolchain install stable --profile minimal
-    rustup target add riscv32i-unknown-none-elf
-
-    export CARGO_BUILD_TARGET=riscv32i-unknown-none-elf
+    rustup target add riscv32i-unknown-none-elf --toolchain stable
+    rustup component add llvm-tools --toolchain stable
   '';
 }

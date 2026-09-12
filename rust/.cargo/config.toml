@@ -1,9 +1,7 @@
-
 [build]
 target = "riscv32i-unknown-none-elf"
 
 [target.riscv32i-unknown-none-elf]
-linker = "riscv32-none-elf-ld"
 rustflags = [
     "-C", "target-cpu=generic-rv32",
     "-C", "target-feature=+zmmul,+zicond,+zifencei,-a,-c,-b,-zba,-zbb,-zbc,-zbkb,-zbkc,-zbkx,-zbs",
@@ -13,5 +11,4 @@ rustflags = [
     "-C", "link-arg=--no-relax",
     "-C", "force-unwind-tables=no",
     "-C", "link-arg=--gc-sections",
-    # "-C", "link-arg=-Wl,--no-warn-rwx-segments",
 ]

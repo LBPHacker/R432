@@ -1,5 +1,5 @@
 [toolchain]
 channel = "stable"
-components = [ "rust-analyzer" ]
+components = [ "rust-analyzer", "llvm-tools" ]
 profile = "minimal"
 targets = [ "riscv32i-unknown-none-elf" ]

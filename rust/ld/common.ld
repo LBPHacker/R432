@@ -5,7 +5,7 @@ SECTIONS {
 	.image : {
 		start_text = .;
 		. = ALIGN(4);
-		KEEP(*(.start))
+		KEEP(*(.text.start))
 		*(.text* .gnu.linkonce.t.*)
 		. = ALIGN(4);
 		end_text = .;
@@ -26,6 +26,8 @@ SECTIONS {
 		. = ALIGN(4);
 		end_bss = .;
 	} > memory
+	start_heap = ALIGN(4);
+	end_heap = memory_base + memory_size - stack_size;
 	.stack (memory_base + memory_size - stack_size) : {
 		start_stack = .;
 		. = ALIGN(4);

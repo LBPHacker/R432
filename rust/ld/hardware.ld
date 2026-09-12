@@ -1,5 +1,5 @@
 memory_base = 0x400000;
-memory_size = 0x2000*4;
+memory_size = 0x200 * 64 /*rows*/;
 stack_size  = 0x200;
 
 terminal      = 0xE0010000;
