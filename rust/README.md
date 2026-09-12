@@ -43,8 +43,8 @@ name = "<name>"
 ```
 they *must* match
 
-hardware defined in `config.lua` must manually be synced with `hardware.ld`, and `mmio/mod.rs` must have the correct types / link names to reflect `hardware.ld`
+Hardware defined in `config.lua` must manually be synced with `hardware.ld`. `mmio/mod.rs` must have the correct types / link names to reflect `hardware.ld`
 
 # Loading
 
-edit `config.lua` (the config this demo expects) and replace `<BIN PATH>` with the abs path printed by the build script, and `/path/to/r4plot.lua` to the abs path of the `r4plot.lua` file. Paste the result into TPT console 
+Edit `config.lua` (the config this demo expects) and replace `<BIN PATH>` with the abs path printed by the build script, and `/path/to/r4plot.lua` to the abs path of the `r4plot.lua` file. Paste the result into TPT console 
