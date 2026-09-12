@@ -6,6 +6,12 @@ edition = "2024"
 [dependencies]
 fix = "0.1.1"
 
+linked_list_allocator = { version = "0.10.5", default-features = false, optional = true }
+
+[features]
+default = []
+alloc = ["dep:linked_list_allocator"]
+
 [profile.release]
 panic = "abort"
 opt-level = "z"

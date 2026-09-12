@@ -1,6 +1,11 @@
 #![no_std]
 #![no_main]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+#[cfg(feature = "alloc")]
+pub mod heap;
+
 pub mod demos;
 pub mod mmio;
 pub mod panic;
@@ -12,6 +17,11 @@ use crate::printer::Printer;
 
 #[unsafe(no_mangle)]
 pub fn main() {
+    #[cfg(feature = "alloc")]
+    unsafe {
+        crate::heap::init();
+    }
+
     let mut printer = Printer::new(&mmio::terminal, 32, 32);
     printer.init();
 
@@ -24,7 +34,6 @@ pub fn main() {
         printer.print("3 quartic plotter\n");
         printer.print("\npress key to select\n");
         printer.print("press any key to exit demo");
-
 
         let input = loop {
             let input = (mmio::terminal.read_blocking() & 0xFF) as u8;
