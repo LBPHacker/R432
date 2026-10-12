@@ -876,7 +876,7 @@ This scheme does not reflect the amount and order of M and I execution units. Th
 
 ## Terminal
 
-The display area is a collection of 8×8-pixel blocks, arranged into a configurable number of rows and columns, inside which pixels take any of 16 configurable colours.
+The display area is a collection of 8×8-pixel blocks, arranged into a configurable number of rows and columns, inside which pixels take any of 16 configurable colours, and in some cases, one group of 16 configurable colours for foregrounds and one for backgrounds.
 
 The supported primitive operations are simple pixel plotting, the *scrollprint*, and printing a 8-by-8 bitmap.
 
@@ -929,7 +929,7 @@ Bit layout:
 |-|-|-|
 | `XXXXXXXXXXXXXXXXXXXXXXXX` | *Background Colour* | *Foreground Colour* |
 
-The 16 hard-coded colours are as follows:
+The 16 hard-coded colours for both the foreground and the background are as follows:
 
 | index | rgb888 | name |
 |-|-|-|
@@ -949,6 +949,8 @@ The 16 hard-coded colours are as follows:
 | 13 | `#FF55FF` | light magenta |
 | 14 | `#FFFF55` | light yellow |
 | 15 | `#FFFFFF` | white |
+
+These can be partially or fully replaced with configuration.
 
 #### `hrange` register: horizontal range used for scrollprints
 
@@ -1010,7 +1012,7 @@ Setting or clearing bits that correspond to columns or rows that do not exist ha
 
 This sub-range is meaningful only if the pixel plotter has been requested in the configuration.
 
-Writing to this sub-range causes a pixel to be plotted, at the intersection of the row and column specified with 5-bit row and column indices, using a colour specified with a 4-bit colour index.
+Writing to this sub-range causes a pixel to be plotted, at the intersection of the row and column specified with 5-bit row and column indices, using a colour specified with a 4-bit foreground colour index.
 
 Bit layout:
 
@@ -1179,7 +1181,13 @@ Boolean, optional, defaults to `false`. If `true`, some very noticeably and dist
 
 #### `.colors` property
 
-Table, optional. If present, it is expected to map the integer keys in the inclusive range 0 to 15 to colours to override the screen's 16 default colours with. Colours that do not appear in this table keep their default values.
+Table, optional. If present, it is expected to map the integer keys in the inclusive range 0 to 15 to colours to override the screen's 16 default colours with, both foreground and background colours with the same colour. Colours that do not appear in this table keep their default values.
+
+The colours are encoded as 24-bit RGB888 values, the least significant byte carrying the blue channel, etc.
+
+#### `.background_colors` property
+
+Table, optional. If present, it is expected to map the integer keys in the inclusive range 0 to 15 to colours to override the screen's 16 default background colours with. Colours that do not appear in this table keep their values set by the `.colors` property.
 
 The colours are encoded as 24-bit RGB888 values, the least significant byte carrying the blue channel, etc.
 

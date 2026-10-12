@@ -69,7 +69,7 @@ local function build(params, params_name, component)
 
 	local peripheral_base = params.base_address
 
-	local colors = {
+	local foreground_colors = {
 		[ 0 ] = 0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
 		        0xAA0000, 0xAA00AA, 0xAAAA00, 0xAAAAAA,
 		        0x555555, 0x5555FF, 0x55FF55, 0x55FFFF,
@@ -81,7 +81,21 @@ local function build(params, params_name, component)
 		for key, value in audited_pairs(params.colors) do
 			check.integer_range(colors_name .. " key " .. tostring(key), key, 0, 15)
 			check.integer_range(colors_name .. "[" .. key .. "]", value, 0, 0xFFFFFF)
-			colors[key] = value
+			foreground_colors[key] = value
+		end
+	end
+
+	local background_colors = {}
+	for key, value in audited_pairs(foreground_colors) do
+		background_colors[key] = value
+	end
+	if params.background_colors ~= nil then
+		local colors_name = params_name .. ".background_colors"
+		check.table(colors_name, params.background_colors)
+		for key, value in audited_pairs(params.background_colors) do
+			check.integer_range(colors_name .. " key " .. tostring(key), key, 0, 15)
+			check.integer_range(colors_name .. "[" .. key .. "]", value, 0, 0xFFFFFF)
+			background_colors[key] = value
 		end
 	end
 
@@ -516,7 +530,7 @@ local function build(params, params_name, component)
 							                  yy >= sim.CELL and
 							                  xx <  size_bw * block_size - sim.CELL and
 							                  yy <  size_bh * block_size - sim.CELL
-							part({ type = pt.CRMC, x = x_blocks + xx, y = y_blocks + yy, freezable = freezable, dcolour = 0xFF000000 + colors[0] })
+							part({ type = pt.STOR, x = x_blocks + xx, y = y_blocks + yy, freezable = freezable, dcolour = 0xFF000000 + background_colors[0] })
 						end
 					end
 				end
@@ -1046,10 +1060,10 @@ local function build(params, params_name, component)
 				x_next_part = x_next_part + 1
 			end
 			for i = 0, 15 do
-				to_bank({ type = pt.CRMC, dcolour = 0xFF000000 + colors[i] })
+				to_bank({ type = pt.CRMC, dcolour = 0xFF000000 + foreground_colors[i] })
 			end
 			for i = 0, 15 do
-				to_bank({ type = pt.STOR, dcolour = 0xFF000000 + colors[i] })
+				to_bank({ type = pt.STOR, dcolour = 0xFF000000 + background_colors[i] })
 			end
 			x_next_part = x_next_part + 1
 			for i = 0, max_dim - 1 do
