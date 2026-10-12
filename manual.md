@@ -287,8 +287,8 @@ The bad news are that in order to target a computer, including these computers, 
 
 The good news is that there exist working setups for:
 
- - [C++](./cpp)
- - [Rust](./rust)
+ - [C++](./programs/cpp-showcase)
+ - [Rust](./programs/rust-showcase)
 
 Other high-level languages should also be possible to target, given the right kind and amount of effort.
 
